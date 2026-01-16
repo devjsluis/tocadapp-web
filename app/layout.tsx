@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TocadApp - La app para músicos",
+  title: "TocadApp",
   description:
     "La aplicación que estabas esperando para gestionar tus tocadas, agenda y pagos",
   keywords: ["músicos", "tocadas", "repertorio", "música"],

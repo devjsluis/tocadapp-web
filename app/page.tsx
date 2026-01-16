@@ -1,7 +1,16 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Home() {
+  const router = useRouter();
+
+  const redirectToLogin = () => {
+    router.push("/login");
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-zinc-50 to-zinc-100 dark:from-black dark:to-zinc-900">
       <main className="flex w-full max-w-4xl flex-col items-center justify-center gap-12 px-6 py-16">
@@ -18,6 +27,7 @@ export default function Home() {
         <div className="flex flex-col gap-4 sm:flex-row">
           <Button
             size="xl"
+            onClick={redirectToLogin}
             className="border-2 border-black text-black hover:bg-black hover:text-white dark:border-white dark:text-white dark:hover:bg-zinc-800 font-bold"
           >
             Empezar ahora
