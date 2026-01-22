@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { NavbarLanding } from "@/components/customized/NavbarLanding";
 
 export default function Home() {
   const router = useRouter();
@@ -12,15 +12,18 @@ export default function Home() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-zinc-50 to-zinc-100 dark:from-black dark:to-zinc-900">
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-black to-zinc-900">
       <main className="flex w-full max-w-4xl flex-col items-center justify-center gap-12 px-6 py-16">
-        <div className="flex flex-col items-center gap-6 text-center">
-          <h1 className="text-5xl font-bold tracking-tight text-black dark:text-white md:text-6xl">
-            TocadApp
+        <NavbarLanding />
+        <div className="flex flex-col items-center gap-8 justify-between text-center">
+          <h1 className="text-7xl font-bold tracking-tight text-white md:text-7xl">
+            Toma el control de tus{" "}
+            <strong className="text-purple-700 italic ">eventos</strong>
           </h1>
-          <p className="max-w-2xl text-xl text-zinc-600 dark:text-zinc-400">
-            Agenda tus eventos, compártelos con tu banda y controla tus ingresos
-            y tus gastos sin complicaciones.
+          <p className="max-w-2xl text-lg text-zinc-400">
+            Agenda tus presentaciones, compártelas con tu banda y controla tus
+            ingresos y tus gastos sin complicaciones, con esta herramienta
+            diseñada para todos los músicos.
           </p>
         </div>
 
@@ -28,57 +31,16 @@ export default function Home() {
           <Button
             size="xl"
             onClick={redirectToLogin}
-            className="border-2 border-black text-black hover:bg-black hover:text-white dark:border-white dark:text-white dark:hover:bg-zinc-800 font-bold"
+            className="border-2 bg-lime-400 border-lime-400 text-black hover:bg-lime-500 font-bold text-lg"
           >
-            Empezar ahora
+            Empieza gratis
           </Button>
           <Button
             size="xl"
-            className="border-2 bg-black text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-gray-300 font-bold dark:border-white"
+            className="border-2 bg-black text-white hover:bg-neutral-900 font-bold border-white text-lg"
           >
-            Ver funcionamiento
+            Ver demo
           </Button>
-        </div>
-
-        <div className="grid w-full gap-6 pt-8 sm:grid-cols-3">
-          <Card className="bg-white dark:bg-zinc-900">
-            <CardHeader>
-              <CardTitle className="text-black dark:text-white">
-                📅 Tocadas compartidas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Lleva el control de los eventos que tienes con tu agrupación.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white dark:bg-zinc-900">
-            <CardHeader>
-              <CardTitle className="text-black dark:text-white">
-                🧑‍🎤 Agenda personal
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Registra tocadas extras y compromisos fuera de la banda.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white dark:bg-zinc-900">
-            <CardHeader>
-              <CardTitle className="text-black dark:text-white">
-                💰 Ingresos y gastos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Visualiza cuánto ganas al mes y en qué se va el dinero.
-              </p>
-            </CardContent>
-          </Card>
         </div>
       </main>
     </div>
