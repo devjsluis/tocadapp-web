@@ -79,64 +79,73 @@ export default function Home() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-white text-4xl font-bold mb-4">
-              Planes para cada etapa
+              Impulsa tu carrera{" "}
+              <span className="text-purple-500">musical</span>
             </h2>
-            <p className="text-zinc-400">
-              Precios accesibles para que solo te preocupes por sonar bien.
+            <p className="text-zinc-400 max-w-2xl mx-auto">
+              Únete gratis como músico o profesionaliza tu agrupación con
+              nuestros planes de gestión.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Plan Solo Artist - $49 */}
+            {/* Plan Músico Pro - El Anzuelo */}
             <div className="p-8 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all flex flex-col">
-              <h3 className="text-white text-xl font-bold mb-2">Solo Artist</h3>
+              <h3 className="text-white text-xl font-bold mb-2">Músico</h3>
               <p className="text-zinc-500 text-sm mb-6">
-                Para músicos independientes.
+                Para los que buscan chamba y orden personal.
               </p>
               <div className="flex items-baseline gap-2 mb-8">
-                <span className="text-4xl font-bold text-white">$49</span>
-                <span className="text-zinc-500 font-medium text-lg">
-                  MXN/mes
-                </span>
+                <span className="text-4xl font-bold text-white">Gratis</span>
               </div>
               <ul className="space-y-4 mb-10 flex-1">
-                <PricingItem text="Hasta 10 eventos al mes" />
-                <PricingItem text="Gestión de ingresos y gastos" />
-                <PricingItem text="Sincronización en la nube" />
-                <PricingItem text="Soporte vía email" />
+                <PricingItem text="Perfil con video y CV musical" />
+                <PricingItem text="Buscador de 'Huesos' (vacantes)" />
+                <PricingItem text="Agenda personal de eventos" />
+                <PricingItem text="Control de ingresos personales" />
               </ul>
-              <Button className="w-full bg-white text-black hover:bg-zinc-200 font-bold py-6">
-                Empezar ahora
+              <Button
+                variant="outline"
+                className="w-full border-zinc-700 text-black hover:bg-gray-200 font-bold py-6"
+              >
+                Crear mi perfil gratis
               </Button>
             </div>
 
-            {/* Plan Full Band - $99 */}
-            <div className="p-8 rounded-2xl bg-gradient-to-b from-purple-900/20 to-zinc-950 border-2 border-purple-600 relative overflow-hidden flex flex-col scale-105 shadow-2xl shadow-purple-900/20">
+            {/* Plan Banda Master - El que te dará los 100k */}
+            <div className="p-8 rounded-2xl bg-gradient-to-b from-purple-900/30 to-zinc-950 border-2 border-purple-600 relative overflow-hidden flex flex-col scale-105 shadow-2xl shadow-purple-900/20">
               <div className="absolute top-4 right-4 bg-purple-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                Recomendado
+                Más Popular
               </div>
-              <h3 className="text-white text-xl font-bold mb-2">Full Band</h3>
+              <h3 className="text-white text-xl font-bold mb-2">
+                Dueño de Banda
+              </h3>
               <p className="text-purple-300/60 text-sm mb-6">
-                Para grupos que van en serio.
+                Control total de tu agrupación y finanzas.
               </p>
               <div className="flex items-baseline gap-2 mb-8">
-                <span className="text-4xl font-bold text-white">$99</span>
+                <span className="text-4xl font-bold text-white">$149</span>
                 <span className="text-zinc-400 font-medium text-lg">
                   MXN/mes
                 </span>
               </div>
               <ul className="space-y-4 mb-10 flex-1">
-                <PricingItem text="Eventos ilimitados" />
-                <PricingItem text="Invita a todos tus integrantes" />
-                <PricingItem text="División automática de ganancias" />
-                <PricingItem text="Reportes PDF descargables" />
-                <PricingItem text="Soporte prioritario" />
+                <PricingItem text="Integrantes ilimitados" />
+                <PricingItem text="Calculadora de Reparto Automática" />
+                <PricingItem text="Gestión de Gastos (Diesel, Comida)" />
+                <PricingItem text="Confirmación de asistencia real" />
+                <PricingItem text="Reportes PDF para transparencia" />
+                <PricingItem text="Soporte prioritario 24/7" />
               </ul>
-              <Button className="w-full bg-purple-700 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/20 font-bold py-6">
-                Obtener Full
+              <Button className="w-full bg-purple-700 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/20 font-bold py-6 text-lg">
+                Profesionalizar mi banda
               </Button>
             </div>
           </div>
+
+          <p className="text-center text-zinc-500 mt-12 text-sm italic">
+            * Sin contratos forzosos. Cancela cuando quieras.
+          </p>
         </div>
       </section>
 
