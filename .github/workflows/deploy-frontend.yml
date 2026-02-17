@@ -1,0 +1,24 @@
+name: Deploy Frontend TocadApp
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/tocadapp/frontend
+
+            git pull origin main
+
+            sudo docker compose up -d --build frontend
+
+            sudo docker image prune -f
