@@ -1,19 +1,57 @@
 "use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { toast } from "sonner";
+import axios from "axios";
+import { authService } from "@/services/auth.service";
 import { NavbarLanding } from "@/components/customized/NavbarLanding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      await authService.login(formData);
+
+      toast.success("¡Bienvenido!", {
+        description: "Accediendo al dashboard",
+      });
+
+      router.push("/dashboard");
+    } catch (err) {
+      let message = "Credenciales incorrectas o error de servidor";
+
+      if (axios.isAxiosError(err)) {
+        message = err.response?.data?.error || message;
+      }
+
+      toast.error("Error al iniciar sesión", { description: message });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-black selection:bg-purple-500/30">
       <NavbarLanding />
       <main className="flex flex-1 items-center justify-center p-6 pt-32">
-        <div className="w-full max-w-md space-y-6 animate-[fadeUp_0.8s_ease-out]">
+        <form
+          onSubmit={handleSubmit}
+          className="w-full max-w-md space-y-6 animate-[fadeUp_0.8s_ease-out]"
+        >
           <div className="flex flex-col items-center gap-2 text-center">
             <h1 className="text-4xl font-extrabold tracking-tighter text-white">
               Bienvenido a{" "}
@@ -41,6 +79,10 @@ export default function LoginPage() {
                     type="email"
                     autoComplete="new-email"
                     placeholder="Ingresa tu correo electrónico"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
                     className="h-12 bg-zinc-900/50 border-zinc-800 text-white focus-visible:ring-purple-700 focus-visible:border-purple-700 transition-all placeholder:text-zinc-600"
                   />
                 </div>
@@ -53,7 +95,10 @@ export default function LoginPage() {
                       Contraseña
                     </Label>
                     <Link href="/forgot-password">
-                      <button className="text-xs text-purple-500 hover:text-purple-400 transition-colors cursor-pointer">
+                      <button
+                        type="button"
+                        className="text-xs text-purple-500 hover:text-purple-400 transition-colors cursor-pointer"
+                      >
                         ¿Olvidaste tu contraseña?
                       </button>
                     </Link>
@@ -63,11 +108,19 @@ export default function LoginPage() {
                     type="password"
                     autoComplete="new-password"
                     placeholder="Ingresa tu contraseña"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
                     className="h-12 bg-zinc-900/50 border-zinc-800 text-white focus-visible:ring-purple-700 focus-visible:border-purple-700 transition-all placeholder:text-zinc-600"
                   />
                 </div>
-                <Button className="h-12 w-full bg-purple-700 font-bold hover:bg-purple-800 text-white mt-4 text-lg shadow-[0_0_20px_rgba(126,34,206,0.3)] active:scale-[0.98] transition-all">
-                  Iniciar Sesión
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="h-12 w-full bg-purple-700 font-bold hover:bg-purple-800 text-white mt-2 shadow-[0_0_20px_rgba(126,34,206,0.3)] transition-all"
+                >
+                  {loading ? "Ingresando..." : "Iniciar Sesión"}
                 </Button>
               </div>
             </div>
@@ -90,7 +143,7 @@ export default function LoginPage() {
               ← Volver a la página principal
             </Button>
           </div>
-        </div>
+        </form>
       </main>
     </div>
   );

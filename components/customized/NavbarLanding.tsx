@@ -1,12 +1,26 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
+import Cookies from "js-cookie";
 
 export const NavbarLanding = () => {
   const pathname = usePathname();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkToken = () => {
+      const token = Cookies.get("token");
+      if (!!token !== isLoggedIn) {
+        setIsLoggedIn(!!token);
+      }
+    };
+
+    checkToken();
+  }, [isLoggedIn]);
 
   const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     if (pathname === "/") {
@@ -66,11 +80,19 @@ export const NavbarLanding = () => {
           </Link>
         </li>
 
-        <Link href="/login">
-          <Button className="bg-purple-700 text-white rounded-md px-5 py-5 cursor-pointer hover:bg-purple-800 font-bold">
-            Iniciar sesión
-          </Button>
-        </Link>
+        {isLoggedIn ? (
+          <Link href="/dashboard">
+            <Button className="bg-purple-700 text-white rounded-md px-5 py-5 cursor-pointer hover:bg-purple-800 font-bold flex gap-2">
+              Ir al Dashboard
+            </Button>
+          </Link>
+        ) : (
+          <Link href="/login">
+            <Button className="bg-purple-700 text-white rounded-md px-5 py-5 cursor-pointer hover:bg-purple-800 font-bold">
+              Iniciar sesión
+            </Button>
+          </Link>
+        )}
       </ul>
     </nav>
   );
