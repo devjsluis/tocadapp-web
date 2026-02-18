@@ -36,7 +36,13 @@ export default function ForgotPasswordPage() {
                   className="h-12 bg-zinc-900/50 border-zinc-800 text-white focus:border-purple-700"
                 />
               </div>
-              <Button className="h-12 w-full bg-purple-700 font-bold hover:bg-purple-800">
+              <Button
+                type="submit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                className="h-12 w-full bg-purple-700 font-bold hover:bg-purple-800"
+              >
                 Enviar enlace
               </Button>
             </div>

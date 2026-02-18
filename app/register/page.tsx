@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { toast } from "sonner";
 import axios from "axios";
 import { NavbarLanding } from "@/components/customized/NavbarLanding";
@@ -18,10 +17,12 @@ import {
 } from "@/components/ui/select";
 import { ApiError } from "@/types/auth";
 import { authService } from "@/services/auth.service";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -171,21 +172,33 @@ export default function RegisterPage() {
                   >
                     Contraseña
                   </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    required
-                    autoComplete="new-password"
-                    placeholder="Ingresa tu contraseña"
-                    className="h-12 bg-zinc-900/50 border-zinc-800 text-white focus-visible:ring-purple-700 transition-all"
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      autoComplete="new-password"
+                      placeholder="Ingresa tu contraseña"
+                      className="h-12 bg-zinc-900/50 border-zinc-800 text-white focus-visible:ring-purple-700 transition-all"
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </Button>
+                  </div>
                 </div>
 
                 <Button
                   type="submit"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
                   disabled={loading}
                   className="col-span-2 h-12 w-full bg-purple-700 font-bold hover:bg-purple-800 text-white mt-4 text-lg shadow-[0_0_20px_rgba(126,34,206,0.3)] active:scale-[0.98] transition-all"
                 >
@@ -197,12 +210,13 @@ export default function RegisterPage() {
 
           <p className="text-center text-sm text-zinc-500">
             ¿Ya tienes cuenta?{" "}
-            <Link
-              href="/login"
-              className="font-bold text-white hover:text-purple-400 transition-colors"
+            <Button
+              type="button"
+              onClick={() => router.push("/login")}
+              className="font-bold text-white hover:text-gray-300 transition-colors cursor-pointer bg-transparent border-none p-0"
             >
               Inicia sesión
-            </Link>
+            </Button>
           </p>
         </form>
       </main>

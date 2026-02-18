@@ -4,10 +4,11 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
 export const NavbarLanding = () => {
+  const router = useRouter();
   const pathname = usePathname();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -82,16 +83,21 @@ export const NavbarLanding = () => {
 
         {isLoggedIn ? (
           <Link href="/dashboard">
-            <Button className="bg-purple-700 text-white rounded-md px-5 py-5 cursor-pointer hover:bg-purple-800 font-bold flex gap-2">
+            <Button
+              type="button"
+              className="bg-purple-700 text-white rounded-md px-5 py-5 cursor-pointer hover:bg-purple-800 font-bold flex gap-2"
+            >
               Ir al Dashboard
             </Button>
           </Link>
         ) : (
-          <Link href="/login">
-            <Button className="bg-purple-700 text-white rounded-md px-5 py-5 cursor-pointer hover:bg-purple-800 font-bold">
-              Iniciar sesión
-            </Button>
-          </Link>
+          <Button
+            onClick={() => router.push("/login")}
+            type="button"
+            className="bg-purple-700 text-white rounded-md px-5 py-5 cursor-pointer hover:bg-purple-800 font-bold"
+          >
+            Iniciar sesión
+          </Button>
         )}
       </ul>
     </nav>

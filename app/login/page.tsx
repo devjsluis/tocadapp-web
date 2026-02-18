@@ -10,9 +10,11 @@ import { NavbarLanding } from "@/components/customized/NavbarLanding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -103,20 +105,32 @@ export default function LoginPage() {
                       </button>
                     </Link>
                   </div>
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="Ingresa tu contraseña"
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                    className="h-12 bg-zinc-900/50 border-zinc-800 text-white focus-visible:ring-purple-700 focus-visible:border-purple-700 transition-all placeholder:text-zinc-600"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                      placeholder="Ingresa tu contraseña"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      className="h-12 bg-zinc-900/50 border-zinc-800 text-white pr-12 focus-visible:ring-purple-700 transition-all placeholder:text-zinc-600"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </Button>
+                  </div>
                 </div>
                 <Button
                   type="submit"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
                   disabled={loading}
                   className="h-12 w-full bg-purple-700 font-bold hover:bg-purple-800 text-white mt-2 shadow-[0_0_20px_rgba(126,34,206,0.3)] transition-all"
                 >
@@ -128,20 +142,19 @@ export default function LoginPage() {
           <div className="flex flex-col justify-center gap-4">
             <p className="text-center text-sm text-zinc-500">
               ¿No tienes cuenta?{" "}
-              <Link href="/register">
-                <button className="font-bold text-white hover:text-gray-300 transition-colors cursor-pointer">
-                  Regístrate gratis
-                </button>
+              <Link
+                href="/register"
+                className="font-bold text-white hover:text-gray-300 transition-colors cursor-pointer"
+              >
+                Regístrate gratis
               </Link>
             </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-zinc-500 hover:text-white transition-all bg-transparent hover:bg-transparent"
-              onClick={() => router.push("/")}
+            <Link
+              href="/"
+              className="text-center text-sm text-zinc-500 hover:text-white transition-all bg-transparent hover:bg-transparent"
             >
               ← Volver a la página principal
-            </Button>
+            </Link>
           </div>
         </form>
       </main>
