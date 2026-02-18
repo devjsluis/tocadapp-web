@@ -133,13 +133,13 @@ export default function RegisterPage() {
                         value="musician"
                         className="focus:bg-purple-900/50 focus:text-white cursor-pointer"
                       >
-                        Músico (Busco tocadas)
+                        Músico
                       </SelectItem>
                       <SelectItem
                         value="leader"
                         className="focus:bg-purple-900/50 focus:text-white cursor-pointer"
                       >
-                        Líder (Administro bandas)
+                        Encargado
                       </SelectItem>
                     </SelectContent>
                   </Select>
