@@ -89,7 +89,7 @@ export default function RegisterPage() {
                     id="name"
                     autoComplete="given-name"
                     required
-                    placeholder="Ingresa tu nombre"
+                    placeholder="Nombre"
                     className="h-12 bg-zinc-900/50 border-zinc-800 text-white focus-visible:ring-purple-700 transition-all"
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
@@ -107,7 +107,7 @@ export default function RegisterPage() {
                     id="lastName"
                     autoComplete="family-name"
                     required
-                    placeholder="Ingresa tu apellido"
+                    placeholder="Apellido"
                     className="h-12 bg-zinc-900/50 border-zinc-800 text-white focus-visible:ring-purple-700 transition-all"
                     onChange={(e) =>
                       setFormData({ ...formData, lastName: e.target.value })

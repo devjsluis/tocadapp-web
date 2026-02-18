@@ -27,7 +27,9 @@ export default function DashboardPage() {
   return (
     <div className="bg-black h-dvh text-white flex flex-col items-center justify-center gap-3">
       <div className="flex flex-col items-center">
-        <h1 className="text-4xl font-bold">Bienvenido al Dashboard</h1>
+        <h1 className="text-4xl font-bold text-center">
+          Bienvenido al Dashboard
+        </h1>
       </div>
 
       <Button
