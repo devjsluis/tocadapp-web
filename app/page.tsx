@@ -48,7 +48,10 @@ export default function Home() {
       </main>
 
       {/* --- CARACTERÍSTICAS --- */}
-      <section id="caracteristicas" className="py-24 px-8 bg-zinc-900/30">
+      <section
+        id="caracteristicas"
+        className="py-24 px-8 bg-zinc-900/30 animate-[fadeUp_0.8s_ease-out]"
+      >
         <div className="max-w-6xl mx-auto">
           <h2 className="text-white text-4xl font-bold text-center mb-16">
             Diseñado por <span className="text-purple-500">músicos</span> para
@@ -75,7 +78,10 @@ export default function Home() {
       </section>
 
       {/* --- PRECIOS --- */}
-      <section id="precios" className="py-24 px-8">
+      <section
+        id="precios"
+        className="py-24 px-8 animate-[fadeUp_0.8s_ease-out]"
+      >
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-white text-4xl font-bold mb-4">
@@ -152,7 +158,7 @@ export default function Home() {
       {/* --- CONTACTO --- */}
       <section
         id="contacto"
-        className="py-24 px-8 bg-zinc-900/50 border-t border-zinc-800"
+        className="py-24 px-8 bg-zinc-900/50 border-t border-zinc-800 animate-[fadeUp_0.8s_ease-out]"
       >
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-white text-4xl font-bold mb-6">¿Hablamos?</h2>
