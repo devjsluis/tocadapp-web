@@ -47,7 +47,6 @@ export default function Home() {
         </div>
       </main>
 
-      {/* --- CARACTERÍSTICAS --- */}
       <section
         id="caracteristicas"
         className="py-24 px-8 bg-zinc-900/30 animate-[fadeUp_0.8s_ease-out]"
@@ -77,7 +76,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- PRECIOS --- */}
       <section
         id="precios"
         className="py-24 px-8 animate-[fadeUp_0.8s_ease-out]"
@@ -95,7 +93,6 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Plan Músico Pro - El Anzuelo */}
             <div className="p-8 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all flex flex-col">
               <h3 className="text-white text-xl font-bold mb-2">Músico</h3>
               <p className="text-zinc-500 text-sm mb-6">
@@ -118,7 +115,6 @@ export default function Home() {
               </Button>
             </div>
 
-            {/* Plan Banda Master - El que te dará los 100k */}
             <div className="p-8 rounded-2xl bg-linear-to-b from-purple-900/30 to-zinc-950 border-2 border-purple-600 relative overflow-hidden flex flex-col scale-105 shadow-2xl shadow-purple-900/20">
               <div className="absolute top-4 right-4 bg-purple-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                 Más Popular
@@ -155,7 +151,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- CONTACTO --- */}
       <section
         id="contacto"
         className="py-24 px-8 bg-zinc-900/50 border-t border-zinc-800 animate-[fadeUp_0.8s_ease-out]"
@@ -184,8 +179,6 @@ export default function Home() {
     </div>
   );
 }
-
-/* Componentes auxiliares para mantener el código limpio */
 
 function FeatureCard({
   icon,
