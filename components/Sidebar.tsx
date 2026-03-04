@@ -55,7 +55,7 @@ export function Sidebar() {
         <div className="p-4 border-t border-zinc-800">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 w-full rounded-lg transition-all"
+            className="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 w-full rounded-lg transition-all cursor-pointer"
           >
             <LogOut size={20} />
             <span className="font-medium">Cerrar Sesión</span>
@@ -81,7 +81,10 @@ export function Sidebar() {
               </Link>
             );
           })}
-          <button onClick={handleLogout} className="text-red-400 px-2 pb-1">
+          <button
+            onClick={handleLogout}
+            className="text-red-400 px-2 pb-1 cursor-pointer"
+          >
             <LogOut size={24} />
           </button>
         </div>
