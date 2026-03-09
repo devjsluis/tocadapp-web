@@ -12,6 +12,8 @@ import {
   Music,
   Pencil,
   Trash2,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -36,6 +38,8 @@ type FormData = {
   notes: string;
 };
 
+type ViewMode = "grid" | "month";
+
 const emptyForm: FormData = {
   title: "",
   place: "",
@@ -56,8 +60,29 @@ function toDateInput(dateStr: string): string {
 }
 
 function toTimeInput(timeStr: string): string {
-  // "HH:MM:SS" → "HH:MM"
   return timeStr?.slice(0, 5) ?? "";
+}
+
+function fmtMoney(value: number | string): string {
+  return Number(value).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+// Agrupa gigs por "Mes Año" manteniendo orden cronológico
+function groupByMonth(gigs: Gig[]): { label: string; gigs: Gig[] }[] {
+  const map = new Map<string, Gig[]>();
+  for (const gig of gigs) {
+    const d = parseLocalDate(gig.date);
+    const key = d.toLocaleDateString("es-MX", {
+      month: "long",
+      year: "numeric",
+    });
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(gig);
+  }
+  return Array.from(map.entries()).map(([label, gigs]) => ({ label, gigs }));
 }
 
 const GigSkeleton = () => (
@@ -71,22 +96,63 @@ const GigSkeleton = () => (
       <div className="h-3 w-3/4 bg-zinc-800 rounded" />
       <div className="h-3 w-1/2 bg-zinc-800 rounded" />
     </div>
-    <div className="mt-6 pt-4 border-t border-zinc-800 flex justify-between items-center">
+    <div className="mt-6 pt-4 border-t border-zinc-800 flex justify-between">
       <div className="space-y-1">
         <div className="h-2 w-10 bg-zinc-800 rounded" />
         <div className="h-5 w-20 bg-zinc-800 rounded" />
       </div>
-      <div className="h-8 w-16 bg-zinc-800 rounded-md" />
     </div>
   </div>
 );
+
+// Modal de confirmación de borrado
+function ConfirmModal({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-full max-w-sm">
+        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mx-auto mb-4">
+          <Trash2 size={22} className="text-red-400" />
+        </div>
+        <h3 className="font-bold text-lg text-center mb-1">
+          ¿Eliminar tocada?
+        </h3>
+        <p className="text-zinc-400 text-sm text-center mb-6">
+          Esta acción no se puede deshacer.
+        </p>
+        <div className="flex gap-3">
+          <Button
+            variant="ghost"
+            onClick={onCancel}
+            className="flex-1 border border-zinc-700 hover:bg-zinc-800 cursor-pointer"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={onConfirm}
+            className="flex-1 bg-red-600 hover:bg-red-700 cursor-pointer"
+          >
+            Eliminar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function GigsPage() {
   const [gigs, setGigs] = useState<Gig[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingGig, setEditingGig] = useState<Gig | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [formData, setFormData] = useState<FormData>(emptyForm);
 
   const fetchGigs = async () => {
@@ -141,29 +207,52 @@ export default function GigsPage() {
       closeForm();
       fetchGigs();
     } catch (error) {
-      alert(`Error al guardar la tocada: ${error}`);
+      console.error("Error al guardar la tocada:", error);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar esta tocada? Esta acción no se puede deshacer."))
-      return;
-    setDeleting(id);
+  const confirmDelete = async () => {
+    if (!confirmDeleteId) return;
+    setDeleting(true);
     try {
-      await api.delete(`/gigs/${id}`);
-      setGigs((prev) => prev.filter((g) => g.id !== id));
+      await api.delete(`/gigs/${confirmDeleteId}`);
+      setGigs((prev) => prev.filter((g) => g.id !== confirmDeleteId));
     } catch (error) {
-      alert(`Error al eliminar: ${error}`);
+      console.error("Error al eliminar:", error);
     } finally {
-      setDeleting(null);
+      setDeleting(false);
+      setConfirmDeleteId(null);
     }
   };
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const monthGroups = groupByMonth(gigs);
+
+  // Botones de acción reutilizables
+  const ActionButtons = ({ gig }: { gig: Gig }) => (
+    <div className="flex gap-1">
+      <button
+        onClick={() => openEdit(gig)}
+        className="p-1.5 rounded-md text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 transition-colors cursor-pointer"
+        title="Editar"
+      >
+        <Pencil size={14} />
+      </button>
+      <button
+        onClick={() => setConfirmDeleteId(gig.id)}
+        className="p-1.5 rounded-md text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+        title="Eliminar"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+
   return (
     <div className="max-w-6xl mx-auto">
+      {/* Header */}
       <div className="flex justify-between items-center mb-8 border-b border-zinc-800/50 pb-6">
         <div>
           <h1 className="text-3xl font-bold bg-linear-to-r from-white to-zinc-500 bg-clip-text text-transparent">
@@ -173,12 +262,43 @@ export default function GigsPage() {
             Control de eventos y agenda musical
           </p>
         </div>
-        <Button
-          onClick={openCreate}
-          className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 transition-all active:scale-95"
-        >
-          <Plus size={18} className="mr-1" /> Nueva Tocada
-        </Button>
+
+        <div className="flex items-center gap-3">
+          {/* Toggle de vista */}
+          {!loading && gigs.length > 0 && (
+            <div className="flex bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("grid")}
+                title="Vista en tarjetas"
+                className={`p-2 rounded-md transition-colors cursor-pointer ${
+                  viewMode === "grid"
+                    ? "bg-zinc-700 text-white"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode("month")}
+                title="Vista por mes"
+                className={`p-2 rounded-md transition-colors cursor-pointer ${
+                  viewMode === "month"
+                    ? "bg-zinc-700 text-white"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                <List size={16} />
+              </button>
+            </div>
+          )}
+
+          <Button
+            onClick={openCreate}
+            className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 transition-all active:scale-95 cursor-pointer"
+          >
+            <Plus size={18} className="mr-1" /> Nueva Tocada
+          </Button>
+        </div>
       </div>
 
       {/* Modal crear / editar */}
@@ -187,15 +307,13 @@ export default function GigsPage() {
           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-full max-w-md relative">
             <button
               onClick={closeForm}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-white"
+              className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"
             >
               <X size={20} />
             </button>
-
             <h2 className="text-xl font-bold mb-6">
               {editingGig ? "Editar Tocada" : "Registrar Evento"}
             </h2>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
                 type="text"
@@ -270,13 +388,21 @@ export default function GigsPage() {
               />
               <Button
                 type="submit"
-                className="w-full bg-purple-600 hover:bg-purple-700 font-bold py-6"
+                className="w-full bg-purple-600 hover:bg-purple-700 font-bold py-6 cursor-pointer"
               >
                 {editingGig ? "Guardar Cambios" : "Guardar Tocada"}
               </Button>
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal confirmar borrado */}
+      {confirmDeleteId && (
+        <ConfirmModal
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
       )}
 
       {/* Empty state */}
@@ -295,97 +421,216 @@ export default function GigsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {loading
-          ? Array.from({ length: 6 }).map((_, i) => <GigSkeleton key={i} />)
-          : gigs.map((gig) => {
-              const gigDate = parseLocalDate(gig.date);
-              const isPast = gigDate < today;
+      {/* ── Vista Grid ── */}
+      {viewMode === "grid" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading
+            ? Array.from({ length: 6 }).map((_, i) => <GigSkeleton key={i} />)
+            : gigs.map((gig) => {
+                const isPast = parseLocalDate(gig.date) < today;
+                return (
+                  <div
+                    key={gig.id}
+                    className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl hover:border-purple-500/40 transition-all group relative"
+                  >
+                    {/* Acciones hover */}
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ActionButtons gig={gig} />
+                    </div>
 
-              return (
-                <div
-                  key={gig.id}
-                  className="bg-zinc-900 border border-zinc-800 p-5 rounded-xl hover:border-purple-500/40 transition-all group relative"
-                >
-                  {/* Botones editar / borrar */}
-                  <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => openEdit(gig)}
-                      className="p-1.5 rounded-md text-zinc-500 hover:text-purple-400 hover:bg-purple-500/10 transition-colors"
-                      title="Editar"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(gig.id)}
-                      disabled={deleting === gig.id}
-                      className="p-1.5 rounded-md text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                      title="Eliminar"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex justify-between items-start mb-3 pr-14">
+                      <h3 className="text-lg font-bold text-purple-400 leading-tight">
+                        {gig.title}
+                      </h3>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full uppercase font-bold border shrink-0 ${
+                          isPast
+                            ? "bg-zinc-700/30 text-zinc-500 border-zinc-700/50"
+                            : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+                        }`}
+                      >
+                        {isPast ? "Pasada" : "Próxima"}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-sm text-zinc-400">
+                      <div className="flex items-center gap-2">
+                        <MapPin size={14} className="text-zinc-600 shrink-0" />
+                        {gig.place}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar
+                          size={14}
+                          className="text-zinc-600 shrink-0"
+                        />
+                        <span className="capitalize">
+                          {parseLocalDate(gig.date).toLocaleDateString(
+                            "es-MX",
+                            {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock size={14} className="text-zinc-600 shrink-0" />
+                        {String(gig.time).slice(0, 5)} ({gig.hours} hrs)
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-zinc-800 flex justify-between items-center">
+                      <div>
+                        <p className="text-[10px] text-zinc-500 uppercase font-bold">
+                          Pago Total
+                        </p>
+                        <span className="text-green-500 font-bold flex items-center gap-1 text-lg">
+                          <DollarSign size={18} />
+                          {fmtMoney(gig.amount)}
+                        </span>
+                      </div>
+                      {gig.notes && (
+                        <p className="text-xs text-zinc-600 italic max-w-[120px] text-right line-clamp-2">
+                          {gig.notes}
+                        </p>
+                      )}
+                    </div>
                   </div>
+                );
+              })}
+        </div>
+      )}
 
-                  <div className="flex justify-between items-start mb-3 pr-14">
-                    <h3 className="text-lg font-bold text-purple-400 leading-tight">
-                      {gig.title}
-                    </h3>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full uppercase font-bold border shrink-0 ${
-                        isPast
-                          ? "bg-zinc-700/30 text-zinc-500 border-zinc-700/50"
-                          : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
-                      }`}
-                    >
-                      {isPast ? "Pasada" : "Próxima"}
+      {/* ── Vista Por Mes ── */}
+      {viewMode === "month" && !loading && (
+        <div className="space-y-8">
+          {monthGroups.map(({ label, gigs: monthGigs }) => {
+            const monthTotal = monthGigs.reduce(
+              (acc, g) => acc + Number(g.amount),
+              0,
+            );
+            return (
+              <div key={label}>
+                {/* Header del mes */}
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500 capitalize">
+                    {label}
+                  </h2>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-zinc-600">
+                      {monthGigs.length}{" "}
+                      {monthGigs.length === 1 ? "tocada" : "tocadas"}
+                    </span>
+                    <span className="text-sm font-bold text-green-400">
+                      ${fmtMoney(monthTotal)}
                     </span>
                   </div>
-
-                  <div className="space-y-2 text-sm text-zinc-400">
-                    <div className="flex items-center gap-2">
-                      <MapPin size={14} className="text-zinc-600 shrink-0" />
-                      {gig.place}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-zinc-600 shrink-0" />
-                      <span className="capitalize">
-                        {parseLocalDate(gig.date).toLocaleDateString("es-MX", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock size={14} className="text-zinc-600 shrink-0" />
-                      {String(gig.time).slice(0, 5)} ({gig.hours} hrs)
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-zinc-800 flex justify-between items-center">
-                    <div>
-                      <p className="text-[10px] text-zinc-500 uppercase font-bold">
-                        Pago Total
-                      </p>
-                      <span className="text-green-500 font-bold flex items-center gap-1 text-lg">
-                        <DollarSign size={18} />
-                        {Number(gig.amount).toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
-                    </div>
-                    {gig.notes && (
-                      <p className="text-xs text-zinc-600 italic max-w-[120px] text-right line-clamp-2">
-                        {gig.notes}
-                      </p>
-                    )}
-                  </div>
                 </div>
-              );
-            })}
-      </div>
+
+                {/* Filas de gigs */}
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
+                  {monthGigs.map((gig, idx) => {
+                    const d = parseLocalDate(gig.date);
+                    const isPast = d < today;
+                    const isLast = idx === monthGigs.length - 1;
+                    return (
+                      <div
+                        key={gig.id}
+                        className={`flex items-center gap-4 px-5 py-4 group hover:bg-zinc-800/40 transition-colors ${
+                          !isLast ? "border-b border-zinc-800/60" : ""
+                        }`}
+                      >
+                        {/* Día */}
+                        <div
+                          className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 ${
+                            isPast
+                              ? "bg-zinc-800 text-zinc-500"
+                              : "bg-purple-500/15 text-purple-400"
+                          }`}
+                        >
+                          <span className="text-sm font-bold leading-none">
+                            {d.getDate()}
+                          </span>
+                          <span className="text-[9px] uppercase mt-0.5 opacity-70">
+                            {d.toLocaleDateString("es-MX", {
+                              weekday: "short",
+                            })}
+                          </span>
+                        </div>
+
+                        {/* Info principal */}
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`font-semibold truncate ${isPast ? "text-zinc-500" : "text-white"}`}
+                          >
+                            {gig.title}
+                          </p>
+                          <div className="flex items-center gap-3 mt-0.5 text-xs text-zinc-600">
+                            <span className="flex items-center gap-1">
+                              <MapPin size={11} /> {gig.place}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock size={11} />{" "}
+                              {String(gig.time).slice(0, 5)} · {gig.hours} hrs
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Monto */}
+                        <span
+                          className={`text-sm font-bold shrink-0 ${isPast ? "text-zinc-600" : "text-green-400"}`}
+                        >
+                          ${fmtMoney(gig.amount)}
+                        </span>
+
+                        {/* Acciones hover */}
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <ActionButtons gig={gig} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Skeleton vista mes */}
+      {viewMode === "month" && loading && (
+        <div className="space-y-8">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="animate-pulse">
+              <div className="h-4 w-28 bg-zinc-800 rounded mb-3" />
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
+                {Array.from({ length: 3 }).map((_, j) => (
+                  <div
+                    key={j}
+                    className="flex items-center gap-4 px-5 py-4 border-b border-zinc-800/60 last:border-0"
+                  >
+                    <div className="w-11 h-11 rounded-xl bg-zinc-800 shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-40 bg-zinc-800 rounded" />
+                      <div className="h-3 w-56 bg-zinc-800 rounded" />
+                    </div>
+                    <div className="h-4 w-20 bg-zinc-800 rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Indicador de borrado en proceso */}
+      {deleting && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-zinc-800 border border-zinc-700 px-4 py-2 rounded-full text-sm text-zinc-300 shadow-xl">
+          Eliminando...
+        </div>
+      )}
     </div>
   );
 }
