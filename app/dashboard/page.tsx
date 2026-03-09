@@ -20,6 +20,22 @@ interface Gig {
   place: string;
 }
 
+// Parsea la fecha sin depender del timezone del navegador
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatDate(dateStr: string): string {
+  const d = parseLocalDate(dateStr);
+  return d.toLocaleDateString("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export default function DashboardPage() {
   const [stats, setStats] = useState({
     totalGigs: 0,
@@ -38,11 +54,19 @@ export default function DashboardPage() {
           0,
         );
 
-        setStats({
-          totalGigs: gigs.length,
-          totalEarnings: total,
-          nextGig: gigs[0] || null,
-        });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const nextGig =
+          gigs
+            .filter((g) => parseLocalDate(g.date) >= today)
+            .sort(
+              (a, b) =>
+                parseLocalDate(a.date).getTime() -
+                parseLocalDate(b.date).getTime(),
+            )[0] ?? null;
+
+        setStats({ totalGigs: gigs.length, totalEarnings: total, nextGig });
       } catch (error) {
         console.error("Error cargando dashboard", error);
       }
@@ -70,15 +94,15 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Ganancias Totales"
-          value={`$${stats.totalEarnings.toLocaleString()}`}
+          value={`$${stats.totalEarnings.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={<DollarSign className="text-green-500" />}
           description="Monto acumulado bruto"
         />
         <StatCard
           title="Próximo Evento"
-          value={stats.nextGig ? stats.nextGig.title : "Sin eventos"}
+          value={stats.nextGig ? stats.nextGig.title : "Sin eventos próximos"}
           icon={<CalendarIcon className="text-blue-500" />}
-          description={stats.nextGig ? stats.nextGig.date : "--"}
+          description={stats.nextGig ? formatDate(stats.nextGig.date) : "--"}
         />
       </div>
 
@@ -109,7 +133,7 @@ export default function DashboardPage() {
               </p>
             ) : (
               <p className="text-zinc-400 text-sm italic">
-                Tienes {stats.totalGigs} eventos programados. ¡A darle!
+                Tienes {stats.totalGigs} eventos registrados. ¡A darle!
               </p>
             )}
           </div>
@@ -135,7 +159,7 @@ function StatCard({ title, value, icon, description }: StatCardProps) {
       <div>
         <p className="text-zinc-500 text-sm font-medium">{title}</p>
         <h3 className="text-2xl font-bold mt-1">{value}</h3>
-        <p className="text-xs text-zinc-600 mt-2">{description}</p>
+        <p className="text-xs text-zinc-600 mt-2 capitalize">{description}</p>
       </div>
     </div>
   );
