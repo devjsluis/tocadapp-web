@@ -329,12 +329,18 @@ export default function GigsPage() {
                 type="text"
                 placeholder="Lugar / Salón"
                 value={formData.place}
+                list="places-list"
                 className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white placeholder:text-zinc-500"
                 onChange={(e) =>
                   setFormData({ ...formData, place: e.target.value })
                 }
                 required
               />
+              <datalist id="places-list">
+                {[...new Set(gigs.map((g) => g.place.trim()).filter(Boolean))].map(
+                  (p) => <option key={p} value={p} />,
+                )}
+              </datalist>
               <div className="grid grid-cols-2 gap-4">
                 <input
                   type="date"
