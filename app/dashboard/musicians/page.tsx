@@ -92,9 +92,9 @@ export default function MusiciansPage() {
       <div className="flex justify-between items-center mb-8 border-b border-zinc-800/50 pb-6">
         <div>
           <h1 className="text-3xl font-bold bg-linear-to-r from-white to-zinc-500 bg-clip-text text-transparent">
-            Músicos
+            Contactos
           </h1>
-          <p className="text-zinc-500 mt-1">Integrantes de tu banda</p>
+          <p className="text-zinc-500 mt-1">Músicos con los que trabajas</p>
         </div>
         <Button
           onClick={() => setShowForm(true)}
@@ -170,10 +170,10 @@ export default function MusiciansPage() {
             <Users size={40} className="text-zinc-700" />
           </div>
           <h3 className="text-lg font-semibold text-zinc-400 mb-1">
-            Sin músicos registrados
+            Sin contactos registrados
           </h3>
           <p className="text-zinc-600 text-sm max-w-xs">
-            Agrega a los integrantes de tu banda para tenerlos siempre a la
+            Agrega los músicos con los que trabajas para tenerlos siempre a la
             mano.
           </p>
         </div>

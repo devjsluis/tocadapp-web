@@ -8,13 +8,6 @@ import { NavbarLanding } from "@/components/customized/NavbarLanding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ApiError } from "@/types/auth";
 import { authService } from "@/services/auth.service";
 import { Eye, EyeOff } from "lucide-react";
@@ -113,36 +106,6 @@ export default function RegisterPage() {
                       setFormData({ ...formData, lastName: e.target.value })
                     }
                   />
-                </div>
-
-                <div className="grid gap-2 col-span-2">
-                  <Label className="text-zinc-400 ml-1 text-xs font-semibold uppercase tracking-wider">
-                    Soy un...
-                  </Label>
-                  <Select
-                    defaultValue={formData.role}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, role: value })
-                    }
-                  >
-                    <SelectTrigger className="h-12 bg-zinc-900/50 border-zinc-800 text-white focus:ring-purple-700 transition-all">
-                      <SelectValue placeholder="Selecciona tu rol" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-950 border-zinc-800 text-white">
-                      <SelectItem
-                        value="musician"
-                        className="focus:bg-purple-900/50 focus:text-white cursor-pointer"
-                      >
-                        Músico
-                      </SelectItem>
-                      <SelectItem
-                        value="leader"
-                        className="focus:bg-purple-900/50 focus:text-white cursor-pointer"
-                      >
-                        Encargado
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div className="grid gap-2 col-span-2">

@@ -1,7 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(ls -la \"C:/Users/LuisAngelGGG/Documents/Programación/Proyectos personales/TocadApp/tocadapp-web/\" | grep -E \"\\\\.\\(json|config|ts|js\\)$|next|tailwind|typescript\")",
+      "Bash(cd \"/c/Users/LuisAngelGGG/Documents/Programación/Proyectos personales/TocadApp/tocadapp-api\" && npx tsc --noEmit 2>&1)",
+      "Bash(cd \"/c/Users/LuisAngelGGG/Documents/Programación/Proyectos personales/TocadApp/tocadapp-web\" && npx tsc --noEmit 2>&1)",
+      "Bash(cd \"/c/Users/LuisAngelGGG/Documents/Programación/Proyectos personales/TocadApp/tocadapp-api\" && npx tsc --noEmit 2>&1; echo \"EXIT:$?\")",
+      "Bash(cd \"/c/Users/LuisAngelGGG/Documents/Programación/Proyectos personales/TocadApp/tocadapp-web\" && npx tsc --noEmit 2>&1; echo \"EXIT:$?\")",
+      "Bash(cd \"/c/Users/LuisAngelGGG/Documents/Programación/Proyectos personales/TocadApp/tocadapp-api\" && npx tsc --noEmit 2>&1; echo \"API EXIT:$?\")",
+      "Bash(cd \"/c/Users/LuisAngelGGG/Documents/Programación/Proyectos personales/TocadApp/tocadapp-web\" && npx tsc --noEmit 2>&1; echo \"WEB EXIT:$?\")",
+      "Bash(cd \"/c/Users/LuisAngelGGG/Documents/Programación/Proyectos personales/TocadApp/tocadapp-web\" && npx tsc --noEmit --exclude \".next\" 2>&1 | grep -v \"\\\\.next/\" | head -30; echo \"EXIT:$?\")",
+      "Bash(cd \"/c/Users/LuisAngelGGG/Documents/Programación/Proyectos personales/TocadApp/tocadapp-web\" && npx tsc --noEmit 2>&1 | grep -v \"\\\\.next/\" ; echo \"EXIT:$?\")",
+      "Bash(cd \"/c/Users/LuisAngelGGG/Documents/Programación/Proyectos personales/TocadApp/tocadapp-web\" && npx tsc --noEmit 2>&1 | grep -v \"\\\\.next/\"; echo \"EXIT:$?\")"
     ]
   }
 }

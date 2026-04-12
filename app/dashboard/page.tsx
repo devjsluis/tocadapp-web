@@ -11,6 +11,7 @@ import {
   TrendingUp,
   CalendarClock,
   Clock,
+  Users2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -32,6 +33,16 @@ interface Gig {
   time: string;
   place: string;
   hours: number | string;
+  band_name?: string | null;
+  is_owner?: boolean;
+  my_amount?: number | string | null;
+}
+
+function effectiveAmount(gig: Gig): number | null {
+  if (gig.is_owner === false) {
+    return gig.my_amount != null ? Number(gig.my_amount) : null;
+  }
+  return Number(gig.amount); // propio o legacy (is_owner undefined)
 }
 
 function parseLocalDate(dateStr: string): Date {
@@ -92,9 +103,15 @@ export default function DashboardPage() {
         parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime(),
     );
 
-  const totalEarned = pastGigs.reduce((acc, g) => acc + Number(g.amount), 0);
+  // Finanzas: gigs con monto conocido (propios + banda con my_amount)
+  const myPastGigs = pastGigs.filter((g) => effectiveAmount(g) !== null);
 
-  const thisMonthEarned = pastGigs
+  const totalEarned = myPastGigs.reduce(
+    (acc, g) => acc + (effectiveAmount(g) ?? 0),
+    0,
+  );
+
+  const thisMonthEarned = myPastGigs
     .filter((g) => {
       const d = parseLocalDate(g.date);
       return (
@@ -102,13 +119,13 @@ export default function DashboardPage() {
         d.getFullYear() === today.getFullYear()
       );
     })
-    .reduce((acc, g) => acc + Number(g.amount), 0);
+    .reduce((acc, g) => acc + (effectiveAmount(g) ?? 0), 0);
 
   const nextGig = futureGigs[0] ?? null;
 
-  // Lugares más tocados (normalizados: trim + lowercase para contar, pero mostramos el texto original más común)
+  // Lugares más tocados (solo gigs propios)
   const placeMap = new Map<string, { count: number; display: string }>();
-  pastGigs.forEach((g) => {
+  myPastGigs.forEach((g) => {
     const key = g.place.trim().toLowerCase();
     const prev = placeMap.get(key);
     placeMap.set(key, {
@@ -121,17 +138,17 @@ export default function DashboardPage() {
     .slice(0, 5);
   const maxPlaceCount = topPlaces[0]?.count ?? 1;
 
-  // Gráfica: ganancias por mes, últimos 6 meses
+  // Gráfica: ganancias por mes, últimos 6 meses (solo gigs propios)
   const chartData = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(today.getFullYear(), today.getMonth() - (5 - i), 1);
-    const total = pastGigs
+    const total = myPastGigs
       .filter((g) => {
         const gd = parseLocalDate(g.date);
         return (
           gd.getMonth() === d.getMonth() && gd.getFullYear() === d.getFullYear()
         );
       })
-      .reduce((acc, g) => acc + Number(g.amount), 0);
+      .reduce((acc, g) => acc + (effectiveAmount(g) ?? 0), 0);
     return {
       mes: d
         .toLocaleDateString("es-MX", { month: "short" })
@@ -174,7 +191,7 @@ export default function DashboardPage() {
           loading={loading}
           icon={<Music size={18} className="text-purple-400" />}
           title="Tocadas realizadas"
-          value={pastGigs.length.toString()}
+          value={myPastGigs.length.toString()}
           sub={`${futureGigs.length} próximas`}
           color="purple"
         />
@@ -367,9 +384,17 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">
-                        {gig.title}
-                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-semibold truncate">
+                          {gig.title}
+                        </p>
+                        {gig.band_name && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold flex items-center gap-0.5 shrink-0">
+                            <Users2 size={8} />
+                            {gig.band_name}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-zinc-600 flex items-center gap-1 mt-0.5">
                         <Clock size={10} />
                         {String(gig.time).slice(0, 5)} ·{" "}

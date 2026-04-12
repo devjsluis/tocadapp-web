@@ -1,14 +1,17 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import { api } from "@/lib/axios";
 import {
   LayoutDashboard,
   Music,
   Users,
+  Users2,
   DollarSign,
   LogOut,
+  UserCircle,
   LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,16 +22,38 @@ interface MenuItem {
   href: string;
 }
 
-const menuItems: MenuItem[] = [
+const baseMenuItems: MenuItem[] = [
   { name: "Inicio", icon: LayoutDashboard, href: "/dashboard" },
   { name: "Tocadas", icon: Music, href: "/dashboard/gigs" },
-  { name: "Músicos", icon: Users, href: "/dashboard/musicians" },
+  { name: "Bandas", icon: Users2, href: "/dashboard/bands" },
   { name: "Finanzas", icon: DollarSign, href: "/dashboard/finances" },
+  { name: "Mi Perfil", icon: UserCircle, href: "/dashboard/profile" },
 ];
+
+const contactosItem: MenuItem = {
+  name: "Contactos",
+  icon: Users,
+  href: "/dashboard/musicians",
+};
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [isLeader, setIsLeader] = useState(false);
+
+  useEffect(() => {
+    api
+      .get("/bands")
+      .then(({ data }) => {
+        const hasOwnBand = data.data?.some((b: { is_owner: boolean }) => b.is_owner);
+        setIsLeader(hasOwnBand);
+      })
+      .catch(() => {});
+  }, []);
+
+  const menuItems = isLeader
+    ? [...baseMenuItems, contactosItem]
+    : baseMenuItems;
 
   const handleLogout = () => {
     Cookies.remove("token");
