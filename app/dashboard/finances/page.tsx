@@ -9,12 +9,14 @@ import {
   Clock,
   BarChart3,
   Music,
-  Calendar,
   MapPin,
   Hourglass,
   Banknote,
   Star,
   Users2,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle,
 } from "lucide-react";
 
 interface Gig {
@@ -28,6 +30,8 @@ interface Gig {
   band_name?: string | null;
   is_owner: boolean;
   my_amount?: number | null;
+  my_collected?: number | null;
+  collected_amount?: number | null;
 }
 
 type TableTab = "pasadas" | "proximas" | "todas";
@@ -56,6 +60,11 @@ function fmtDate(dateStr: string): string {
 function effectiveAmount(gig: Gig): number | null {
   if (gig.is_owner) return Number(gig.amount);
   return gig.my_amount != null ? Number(gig.my_amount) : null;
+}
+
+function effectiveCollected(gig: Gig): number | null {
+  if (gig.is_owner) return gig.collected_amount ?? null;
+  return gig.my_collected ?? null;
 }
 
 // ¿Cuenta este gig en mis finanzas?
@@ -154,6 +163,26 @@ export default function FinancesPage() {
     earnedPrevMonth > 0
       ? ((earnedThisMonth - earnedPrevMonth) / earnedPrevMonth) * 100
       : null;
+
+  // ── Cobros ──
+  const gigsWithAmount = gigs.filter((g) => effectiveAmount(g) !== null);
+  const totalCollected = gigsWithAmount.reduce(
+    (acc, g) => acc + (effectiveCollected(g) ?? 0),
+    0,
+  );
+  const pendingFromPast = pastGigs
+    .filter((g) => effectiveAmount(g) !== null)
+    .reduce((acc, g) => {
+      const ea = effectiveAmount(g) ?? 0;
+      const ec = effectiveCollected(g) ?? 0;
+      return acc + Math.max(0, ea - ec);
+    }, 0);
+  const unregisteredCount = gigsWithAmount.filter(
+    (g) => effectiveCollected(g) === null,
+  ).length;
+  const hasCollectedTracking = gigsWithAmount.some(
+    (g) => effectiveCollected(g) !== null,
+  );
 
   // ── Mejor mes ──
   const byMonth = new Map<string, { total: number; label: string }>();
@@ -494,6 +523,157 @@ export default function FinancesPage() {
                     );
                   })}
                 </div>
+              </>
+            )}
+          </section>
+
+          {/* ── Sección: Estado de cobros ── */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full bg-yellow-500" />
+              <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">
+                Estado de cobros
+              </h2>
+            </div>
+
+            {!hasCollectedTracking ? (
+              <div className="bg-zinc-900/30 border border-zinc-800/50 border-dashed rounded-2xl p-6 text-center">
+                <p className="text-zinc-600 text-sm">
+                  Registra cuánto has cobrado en cada tocada para ver el estado real de tus ingresos.
+                </p>
+                <p className="text-zinc-700 text-xs mt-1">
+                  Usa el botón <span className="text-zinc-500">+ Registrar cobro</span> en cada tarjeta de tocada.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card
+                    loading={loading}
+                    icon={<CheckCircle2 size={16} className="text-green-400" />}
+                    color="green"
+                    title="Cobrado"
+                    value={`$${fmt(totalCollected)}`}
+                    sub="Dinero en tu bolsillo"
+                  />
+                  <Card
+                    loading={loading}
+                    icon={<AlertCircle size={16} className="text-yellow-400" />}
+                    color="yellow"
+                    title="Pendiente de pasadas"
+                    value={`$${fmt(pendingFromPast)}`}
+                    sub="Tocadas hechas, sin cobrar todo"
+                  />
+                  <Card
+                    loading={loading}
+                    icon={<HelpCircle size={16} className="text-zinc-400" />}
+                    color="purple"
+                    title="Sin registrar"
+                    value={`${unregisteredCount} tocada${unregisteredCount !== 1 ? "s" : ""}`}
+                    sub="Sin dato de cobro"
+                  />
+                </div>
+
+                {/* Barra de cobros */}
+                {!loading && (() => {
+                  const total = totalCollected + pendingFromPast;
+                  const collectedPct = total > 0 ? (totalCollected / total) * 100 : 0;
+                  return total > 0 ? (
+                    <div className="mt-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+                      <div className="flex justify-between items-center mb-3">
+                        <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide">
+                          Cobrado vs Pendiente (tocadas registradas)
+                        </p>
+                        <span className="text-sm font-bold text-white">
+                          {collectedPct.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="h-3 bg-zinc-800 rounded-full overflow-hidden flex">
+                        <div
+                          className="h-full bg-linear-to-r from-green-600 to-green-400 transition-all duration-700"
+                          style={{ width: `${collectedPct}%` }}
+                        />
+                        <div
+                          className="h-full bg-linear-to-r from-yellow-700/60 to-yellow-500/40 transition-all duration-700"
+                          style={{ width: `${100 - collectedPct}%` }}
+                        />
+                      </div>
+                      <div className="flex gap-4 mt-2 text-[11px] text-zinc-600">
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                          Cobrado
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-yellow-500/60 inline-block" />
+                          Por cobrar de pasadas
+                        </span>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Lista de tocadas con cobro pendiente */}
+                {pendingFromPast > 0 && !loading && (() => {
+                  const pendingGigs = pastGigs.filter((g) => {
+                    const ea = effectiveAmount(g);
+                    const ec = effectiveCollected(g);
+                    return ea !== null && (ec === null || ec < ea);
+                  });
+                  return (
+                    <div className="mt-4 bg-zinc-900/50 border border-yellow-500/10 rounded-2xl overflow-hidden">
+                      <div className="px-5 py-3 border-b border-zinc-800/60">
+                        <p className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">
+                          Tocadas pasadas con cobro incompleto
+                        </p>
+                      </div>
+                      {pendingGigs.map((gig, idx) => {
+                        const ea = effectiveAmount(gig) ?? 0;
+                        const ec = effectiveCollected(gig) ?? 0;
+                        const falta = ea - ec;
+                        const pct = ea > 0 ? (ec / ea) * 100 : 0;
+                        const isLast = idx === pendingGigs.length - 1;
+                        return (
+                          <div
+                            key={gig.id}
+                            className={`flex items-center gap-4 px-5 py-4 ${!isLast ? "border-b border-zinc-800/60" : ""}`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-sm font-semibold text-zinc-300 truncate">
+                                  {gig.title}
+                                </p>
+                                {gig.band_name && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold shrink-0">
+                                    {gig.band_name}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-zinc-600 mt-0.5 capitalize">
+                                {fmtDate(gig.date)}
+                              </p>
+                              <div className="mt-1.5 h-1 bg-zinc-800 rounded-full overflow-hidden w-full max-w-48">
+                                <div
+                                  className="h-full bg-yellow-500 rounded-full"
+                                  style={{ width: `${Math.min(100, pct)}%` }}
+                                />
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              {ec > 0 && (
+                                <p className="text-xs text-zinc-500">
+                                  Cobrado ${fmt(ec)}
+                                </p>
+                              )}
+                              <p className="text-sm font-bold text-yellow-400">
+                                Falta ${fmt(falta)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </>
             )}
           </section>
