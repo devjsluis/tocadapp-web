@@ -88,8 +88,9 @@ function effectiveAmount(gig: Gig): number | null {
 }
 
 function effectiveCollected(gig: Gig): number | null {
-  if (gig.is_owner) return gig.collected_amount ?? null;
-  return gig.my_collected ?? null;
+  if (gig.is_owner)
+    return gig.collected_amount != null ? Number(gig.collected_amount) : null;
+  return gig.my_collected != null ? Number(gig.my_collected) : null;
 }
 
 function countsInFinances(gig: Gig): boolean {
