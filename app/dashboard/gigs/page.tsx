@@ -276,6 +276,7 @@ export default function GigsPage() {
     try {
       const payload = {
         ...formData,
+        amount: formData.amount || null,
         band_id: formData.band_id || null,
       };
       if (editingGig) {
@@ -530,13 +531,12 @@ export default function GigsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <input
                   type="number"
-                  placeholder="Monto $"
+                  placeholder="Monto $ (opcional)"
                   value={formData.amount}
                   className="bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white placeholder:text-zinc-500"
                   onChange={(e) =>
                     setFormData({ ...formData, amount: e.target.value })
                   }
-                  required
                 />
                 <input
                   type="number"
@@ -645,16 +645,18 @@ export default function GigsPage() {
             <p className="text-zinc-500 text-sm mb-1">
               <span className="text-white font-semibold">{collectedGig.title}</span>
             </p>
-            <p className="text-xs text-zinc-600 mb-5">
-              Monto acordado:{" "}
-              <span className="text-zinc-400 font-semibold">
-                ${fmtMoney(collectedGig.amount)}
-              </span>
-            </p>
+            {collectedGig.amount != null && (
+              <p className="text-xs text-zinc-600 mb-5">
+                Monto acordado:{" "}
+                <span className="text-zinc-400 font-semibold">
+                  ${fmtMoney(collectedGig.amount)}
+                </span>
+              </p>
+            )}
             <form onSubmit={handleSaveCollected} className="space-y-4">
               <input
                 type="number"
-                placeholder="¿Cuánto has cobrado? $"
+                placeholder="¿Cuánto cobraste? $"
                 value={collectedAmount}
                 onChange={(e) => setCollectedAmount(e.target.value)}
                 className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-yellow-500 text-white placeholder:text-zinc-500 text-xl font-bold"
@@ -663,6 +665,7 @@ export default function GigsPage() {
                 step="0.01"
               />
               {collectedAmount !== "" &&
+                collectedGig.amount != null &&
                 Number(collectedAmount) < Number(collectedGig.amount) && (
                 <p className="text-xs text-yellow-500/80">
                   Falta por cobrar:{" "}
@@ -821,10 +824,14 @@ export default function GigsPage() {
                               <p className="text-[10px] text-zinc-500 uppercase font-bold">
                                 Mi pago
                               </p>
-                              <span className="text-green-500 font-bold flex items-center gap-1 text-lg">
-                                <DollarSign size={18} />
-                                {fmtMoney(gig.amount)}
-                              </span>
+                              {gig.amount != null ? (
+                                <span className="text-green-500 font-bold flex items-center gap-1 text-lg">
+                                  <DollarSign size={18} />
+                                  {fmtMoney(gig.amount)}
+                                </span>
+                              ) : (
+                                <span className="text-zinc-600 text-sm italic">Sin monto acordado</span>
+                              )}
                             </div>
                             {gig.notes && (
                               <p className="text-xs text-zinc-600 italic max-w-30 text-right line-clamp-2">
@@ -840,7 +847,7 @@ export default function GigsPage() {
                             >
                               + Registrar cobro
                             </button>
-                          ) : Number(gig.collected_amount) >= Number(gig.amount) ? (
+                          ) : gig.amount != null && Number(gig.collected_amount) >= Number(gig.amount) ? (
                             <div className="flex items-center justify-between">
                               <span className="text-xs text-green-400 flex items-center gap-1">
                                 <CheckCircle2 size={12} /> Cobrado completo
@@ -855,8 +862,14 @@ export default function GigsPage() {
                           ) : (
                             <div className="space-y-1">
                               <div className="flex items-center justify-between">
-                                <span className="text-xs text-yellow-400">
-                                  Cobrado ${fmtMoney(gig.collected_amount)} — falta ${fmtMoney(Number(gig.amount) - Number(gig.collected_amount))}
+                                <span className="text-xs text-green-400 flex items-center gap-1">
+                                  <CheckCircle2 size={12} />
+                                  Cobrado ${fmtMoney(gig.collected_amount)}
+                                  {gig.amount != null && (
+                                    <span className="text-yellow-400">
+                                      {" "}— falta ${fmtMoney(Number(gig.amount) - Number(gig.collected_amount))}
+                                    </span>
+                                  )}
                                 </span>
                                 <button
                                   onClick={() => { setCollectedGig(gig); setCollectedAmount(String(gig.collected_amount)); }}
@@ -865,12 +878,14 @@ export default function GigsPage() {
                                   editar
                                 </button>
                               </div>
-                              <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-yellow-500 rounded-full transition-all"
-                                  style={{ width: `${Math.min(100, (Number(gig.collected_amount) / Number(gig.amount)) * 100)}%` }}
-                                />
-                              </div>
+                              {gig.amount != null && (
+                                <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-yellow-500 rounded-full transition-all"
+                                    style={{ width: `${Math.min(100, (Number(gig.collected_amount) / Number(gig.amount)) * 100)}%` }}
+                                  />
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1097,9 +1112,13 @@ export default function GigsPage() {
 
                         {/* Monto */}
                         {gig.is_owner ? (
-                          <span className={`text-sm font-bold shrink-0 ${isPast ? "text-zinc-600" : "text-green-400"}`}>
-                            ${fmtMoney(gig.amount)}
-                          </span>
+                          gig.amount != null ? (
+                            <span className={`text-sm font-bold shrink-0 ${isPast ? "text-zinc-600" : "text-green-400"}`}>
+                              ${fmtMoney(gig.amount)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-zinc-700 italic shrink-0">Sin monto</span>
+                          )
                         ) : gig.my_amount != null ? (
                           <span className={`text-sm font-bold shrink-0 ${isPast ? "text-zinc-600" : "text-green-400"}`}>
                             ${fmtMoney(gig.my_amount)}
