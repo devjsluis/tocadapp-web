@@ -378,9 +378,11 @@ export default function FinancesPage() {
                         >
                           {monthDiff >= 0 ? "+" : ""}
                           {monthDiff.toFixed(1)}% vs{" "}
-                          {prevMonthDate.toLocaleDateString("es-MX", {
-                            month: "long",
-                          })}
+                          <span suppressHydrationWarning>
+                            {prevMonthDate.toLocaleDateString("es-MX", {
+                              month: "long",
+                            })}
+                          </span>
                         </span>
                       ) : earnedPrevMonth === 0 ? (
                         "Sin datos del mes anterior"
@@ -476,7 +478,7 @@ export default function FinancesPage() {
                           <span className="text-sm font-bold text-blue-400 leading-none">
                             {d.getDate()}
                           </span>
-                          <span className="text-[9px] text-blue-400/60 uppercase mt-0.5">
+                          <span className="text-[9px] text-blue-400/60 uppercase mt-0.5" suppressHydrationWarning>
                             {d
                               .toLocaleDateString("es-MX", { month: "short" })
                               .replace(".", "")}

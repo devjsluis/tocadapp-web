@@ -339,11 +339,9 @@ export default function GigsPage() {
     }
   };
 
-  const handleSaveCollected = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const saveCollected = async (amount: number | null) => {
     if (!collectedGig) return;
     try {
-      const amount = collectedAmount === "" ? null : Number(collectedAmount);
       await api.put(`/gigs/${collectedGig.id}/collected`, { amount });
       setGigs((prev) =>
         prev.map((g) =>
@@ -355,6 +353,12 @@ export default function GigsPage() {
     } catch (error) {
       console.error("Error al guardar cobro:", error);
     }
+  };
+
+  const handleSaveCollected = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = collectedAmount === "" ? null : Number(collectedAmount);
+    saveCollected(amount);
   };
 
   const today = new Date();
@@ -790,7 +794,7 @@ export default function GigsPage() {
                           size={14}
                           className="text-zinc-600 shrink-0"
                         />
-                        <span className="capitalize">
+                        <span className="capitalize" suppressHydrationWarning>
                           {parseLocalDate(gig.date).toLocaleDateString(
                             "es-MX",
                             {
@@ -974,7 +978,7 @@ export default function GigsPage() {
             return (
               <div key={label}>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500 capitalize">
+                  <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">
                     {label}
                   </h2>
                   <div className="flex items-center gap-3">
@@ -1020,7 +1024,7 @@ export default function GigsPage() {
                           <span className="text-sm font-bold leading-none">
                             {d.getDate()}
                           </span>
-                          <span className="text-[9px] uppercase mt-0.5 opacity-70">
+                          <span className="text-[9px] uppercase mt-0.5 opacity-70" suppressHydrationWarning>
                             {d.toLocaleDateString("es-MX", {
                               weekday: "short",
                             })}
