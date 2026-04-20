@@ -149,10 +149,7 @@ export default function FinancesPage() {
   const hasCollectedTracking = pastGigs.length > 0;
 
   // ── Gastos ──
-  const totalExpenses = expenses.reduce(
-    (acc, e) => acc + Number(e.amount),
-    0,
-  );
+  const totalExpenses = expenses.reduce((acc, e) => acc + Number(e.amount), 0);
   const netIncome = totalCollected - totalExpenses;
 
   const expensesByCategory = expenses.reduce(
@@ -162,9 +159,8 @@ export default function FinancesPage() {
     },
     {} as Record<string, number>,
   );
-  const topCategory = Object.entries(expensesByCategory).sort(
-    (a, b) => b[1] - a[1],
-  )[0] ?? null;
+  const topCategory =
+    Object.entries(expensesByCategory).sort((a, b) => b[1] - a[1])[0] ?? null;
 
   // ── Barra anual (2 segmentos: cobrado · tocadas por hacer) ──
   const currentYear = today.getFullYear();
@@ -231,11 +227,7 @@ export default function FinancesPage() {
 
   // ── Tabla ──
   const tableGigs =
-    tab === "pasadas"
-      ? allPastGigs
-      : tab === "proximas"
-        ? allFutureGigs
-        : gigs;
+    tab === "pasadas" ? allPastGigs : tab === "proximas" ? allFutureGigs : gigs;
 
   const tableHours = tableGigs.reduce((acc, g) => acc + Number(g.hours), 0);
 
@@ -295,7 +287,8 @@ export default function FinancesPage() {
             Sin datos financieros
           </h3>
           <p className="text-zinc-600 text-sm max-w-xs">
-            Cuando agregues tocadas y registres cobros, aquí verás tu resumen real.
+            Cuando agregues tocadas y registres cobros, aquí verás tu resumen
+            real.
           </p>
         </div>
       ) : (
@@ -312,7 +305,10 @@ export default function FinancesPage() {
                     <span className="text-green-400 font-bold">
                       ${fmt(yearCollected)}
                     </span>
-                    <span className="text-zinc-600"> cobrados en {yearPastCount} tocadas</span>
+                    <span className="text-zinc-600">
+                      {" "}
+                      cobrados en {yearPastCount} tocadas
+                    </span>
                   </span>
                   {yearFutureCount > 0 && (
                     <span className="text-zinc-600">
@@ -370,7 +366,9 @@ export default function FinancesPage() {
                 <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center mb-3">
                   <Wallet size={16} className="text-purple-400" />
                 </div>
-                <p className="text-zinc-500 text-xs font-medium">Resultado neto</p>
+                <p className="text-zinc-500 text-xs font-medium">
+                  Resultado neto
+                </p>
                 {loading ? (
                   <div className="h-9 w-44 bg-zinc-800 rounded animate-pulse mt-1.5" />
                 ) : (
@@ -450,7 +448,11 @@ export default function FinancesPage() {
                 icon={<TrendingUp size={16} className="text-purple-400" />}
                 color="purple"
                 title="Promedio / tocada"
-                value={pastGigs.length > 0 ? `$${fmt(totalCollected / pastGigs.length)}` : "—"}
+                value={
+                  pastGigs.length > 0
+                    ? `$${fmt(totalCollected / pastGigs.length)}`
+                    : "—"
+                }
                 sub={`${pastGigs.length} eventos`}
               />
             </div>
@@ -707,7 +709,7 @@ export default function FinancesPage() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card
                     loading={loading}
                     icon={<Banknote size={16} className="text-blue-400" />}
@@ -772,7 +774,9 @@ export default function FinancesPage() {
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-xs text-zinc-600 italic">Por venir</p>
+                          <p className="text-xs text-zinc-600 italic">
+                            Por venir
+                          </p>
                         </div>
                       </div>
                     );
