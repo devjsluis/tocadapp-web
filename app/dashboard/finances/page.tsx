@@ -145,7 +145,10 @@ export default function FinancesPage() {
     0,
   );
   const collectedHours = pastGigs.reduce((acc, g) => acc + Number(g.hours), 0);
-  const tarifaReal = collectedHours > 0 ? totalCollected / collectedHours : 0;
+  // Excluir tocadas gratis (cobro = 0) de tarifa/hora y promedio
+  const paidGigs = pastGigs.filter((g) => (effectiveCollected(g) ?? 0) > 0);
+  const paidHours = paidGigs.reduce((acc, g) => acc + Number(g.hours), 0);
+  const tarifaReal = paidHours > 0 ? totalCollected / paidHours : 0;
   const hasCollectedTracking = pastGigs.length > 0;
 
   // ── Gastos ──
@@ -449,11 +452,11 @@ export default function FinancesPage() {
                 color="purple"
                 title="Promedio / tocada"
                 value={
-                  pastGigs.length > 0
-                    ? `$${fmt(totalCollected / pastGigs.length)}`
+                  paidGigs.length > 0
+                    ? `$${fmt(totalCollected / paidGigs.length)}`
                     : "—"
                 }
-                sub={`${pastGigs.length} eventos`}
+                sub={`${paidGigs.length} tocadas pagadas`}
               />
             </div>
 

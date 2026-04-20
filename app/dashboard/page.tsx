@@ -28,21 +28,21 @@ import {
 interface Gig {
   id: string;
   title: string;
-  amount: number | string;
   date: string;
   time: string;
   place: string;
   hours: number | string;
   band_name?: string | null;
   is_owner?: boolean;
-  my_amount?: number | string | null;
+  collected_amount?: number | string | null;
+  my_collected?: number | string | null;
 }
 
-function effectiveAmount(gig: Gig): number | null {
+function effectiveCollected(gig: Gig): number | null {
   if (gig.is_owner === false) {
-    return gig.my_amount != null ? Number(gig.my_amount) : null;
+    return gig.my_collected != null ? Number(gig.my_collected) : null;
   }
-  return Number(gig.amount); // propio o legacy (is_owner undefined)
+  return gig.collected_amount != null ? Number(gig.collected_amount) : null;
 }
 
 function parseLocalDate(dateStr: string): Date {
@@ -103,15 +103,13 @@ export default function DashboardPage() {
         parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime(),
     );
 
-  // Finanzas: gigs con monto conocido (propios + banda con my_amount)
-  const myPastGigs = pastGigs.filter((g) => effectiveAmount(g) !== null);
-
-  const totalEarned = myPastGigs.reduce(
-    (acc, g) => acc + (effectiveAmount(g) ?? 0),
+  // Finanzas: solo cobros reales
+  const totalCollected = pastGigs.reduce(
+    (acc, g) => acc + (effectiveCollected(g) ?? 0),
     0,
   );
 
-  const thisMonthEarned = myPastGigs
+  const thisMonthCollected = pastGigs
     .filter((g) => {
       const d = parseLocalDate(g.date);
       return (
@@ -119,13 +117,13 @@ export default function DashboardPage() {
         d.getFullYear() === today.getFullYear()
       );
     })
-    .reduce((acc, g) => acc + (effectiveAmount(g) ?? 0), 0);
+    .reduce((acc, g) => acc + (effectiveCollected(g) ?? 0), 0);
 
   const nextGig = futureGigs[0] ?? null;
 
-  // Lugares más tocados (solo gigs propios)
+  // Lugares más tocados
   const placeMap = new Map<string, { count: number; display: string }>();
-  myPastGigs.forEach((g) => {
+  pastGigs.forEach((g) => {
     const key = g.place.trim().toLowerCase();
     const prev = placeMap.get(key);
     placeMap.set(key, {
@@ -138,17 +136,17 @@ export default function DashboardPage() {
     .slice(0, 5);
   const maxPlaceCount = topPlaces[0]?.count ?? 1;
 
-  // Gráfica: ganancias por mes, últimos 6 meses (solo gigs propios)
+  // Gráfica: cobros por mes, últimos 6 meses
   const chartData = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(today.getFullYear(), today.getMonth() - (5 - i), 1);
-    const total = myPastGigs
+    const total = pastGigs
       .filter((g) => {
         const gd = parseLocalDate(g.date);
         return (
           gd.getMonth() === d.getMonth() && gd.getFullYear() === d.getFullYear()
         );
       })
-      .reduce((acc, g) => acc + (effectiveAmount(g) ?? 0), 0);
+      .reduce((acc, g) => acc + (effectiveCollected(g) ?? 0), 0);
     return {
       mes: d
         .toLocaleDateString("es-MX", { month: "short" })
@@ -191,23 +189,23 @@ export default function DashboardPage() {
           loading={loading}
           icon={<Music size={18} className="text-purple-400" />}
           title="Tocadas realizadas"
-          value={myPastGigs.length.toString()}
+          value={pastGigs.length.toString()}
           sub={`${futureGigs.length} próximas`}
           color="purple"
         />
         <StatCard
           loading={loading}
           icon={<DollarSign size={18} className="text-green-400" />}
-          title="Ganado total"
-          value={`$${fmtMoney(totalEarned)}`}
-          sub="Solo tocadas pasadas"
+          title="En tu bolsa"
+          value={`$${fmtMoney(totalCollected)}`}
+          sub="Cobrado en tocadas pasadas"
           color="green"
         />
         <StatCard
           loading={loading}
           icon={<TrendingUp size={18} className="text-blue-400" />}
-          title="Este mes"
-          value={`$${fmtMoney(thisMonthEarned)}`}
+          title="Cobrado este mes"
+          value={`$${fmtMoney(thisMonthCollected)}`}
           sub={today.toLocaleDateString("es-MX", {
             month: "long",
             year: "numeric",
@@ -235,7 +233,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-zinc-900/50 border border-zinc-800 p-6 rounded-2xl">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="font-bold">Ganancias por mes</h3>
+              <h3 className="font-bold">Cobros por mes</h3>
               <p className="text-xs text-zinc-600 mt-0.5">Últimos 6 meses</p>
             </div>
             <span className="text-xs text-zinc-600 bg-zinc-800 px-2.5 py-1 rounded-full">
@@ -402,9 +400,11 @@ export default function DashboardPage() {
                         {gig.place}
                       </p>
                     </div>
-                    <span className="text-sm font-bold text-green-400 shrink-0">
-                      ${fmtMoney(Number(gig.amount))}
-                    </span>
+                    {effectiveCollected(gig) !== null && (
+                      <span className="text-sm font-bold text-green-400 shrink-0">
+                        ${fmtMoney(effectiveCollected(gig)!)}
+                      </span>
+                    )}
                   </div>
                 );
               })}
