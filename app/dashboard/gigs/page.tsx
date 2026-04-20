@@ -570,12 +570,14 @@ export default function GigsPage() {
                 step="0.01"
               />
               <div className="flex gap-2">
-                {collectedGig.collected_amount != null && (
+                {(collectedGig.is_owner
+                  ? collectedGig.collected_amount != null
+                  : collectedGig.my_collected != null) && (
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={() => saveCollected(null)}
-                    className="flex-1 border border-zinc-700 text-zinc-500 hover:text-red-400 cursor-pointer"
+                    className="flex-1 border border-zinc-700 text-zinc-500 hover:text-red-400 cursor-pointer py-6"
                   >
                     Borrar cobro
                   </Button>
