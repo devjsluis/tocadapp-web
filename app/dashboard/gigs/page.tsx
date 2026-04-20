@@ -676,7 +676,7 @@ export default function GigsPage() {
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => { setCollectedAmount(""); handleSaveCollected({ preventDefault: () => {} } as React.FormEvent); }}
+                    onClick={() => saveCollected(null)}
                     className="flex-1 border border-zinc-700 text-zinc-500 hover:text-red-400 cursor-pointer"
                   >
                     Borrar cobro
