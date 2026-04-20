@@ -117,7 +117,10 @@ export default function FinancesPage() {
   const [savingExpense, setSavingExpense] = useState(false);
 
   useEffect(() => {
-    Promise.all([api.get("/gigs"), api.get("/expenses")])
+    Promise.all([
+      api.get("/gigs"),
+      api.get("/expenses").catch(() => ({ data: { data: [] } })),
+    ])
       .then(([gigsRes, expensesRes]) => {
         setGigs(gigsRes.data.data);
         setExpenses(expensesRes.data.data);
