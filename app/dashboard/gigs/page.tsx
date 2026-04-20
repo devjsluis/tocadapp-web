@@ -52,7 +52,6 @@ type FormData = {
   place: string;
   date: string;
   time: string;
-  amount: string;
   hours: string;
   notes: string;
   band_id: string;
@@ -65,7 +64,6 @@ const emptyForm: FormData = {
   place: "",
   date: "",
   time: "",
-  amount: "",
   hours: "",
   notes: "",
   band_id: "",
@@ -211,9 +209,6 @@ export default function GigsPage() {
   const [deleting, setDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [formData, setFormData] = useState<FormData>(emptyForm);
-  const [earningsGig, setEarningsGig] = useState<Gig | null>(null);
-  const [earningsAmount, setEarningsAmount] = useState("");
-  const [earningsCollected, setEarningsCollected] = useState("");
   const [collectedGig, setCollectedGig] = useState<Gig | null>(null);
   const [collectedAmount, setCollectedAmount] = useState("");
 
@@ -257,7 +252,6 @@ export default function GigsPage() {
       place: gig.place,
       date: toDateInput(gig.date),
       time: toTimeInput(String(gig.time)),
-      amount: String(gig.amount),
       hours: String(gig.hours),
       notes: gig.notes ?? "",
       band_id: gig.band_id ?? "",
@@ -276,7 +270,7 @@ export default function GigsPage() {
     try {
       const payload = {
         ...formData,
-        amount: formData.amount || null,
+        amount: null,
         band_id: formData.band_id || null,
       };
       if (editingGig) {
@@ -316,39 +310,27 @@ export default function GigsPage() {
     }
   };
 
-  const handleSaveEarnings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!earningsGig) return;
-    try {
-      const collected = earningsCollected === "" ? null : Number(earningsCollected);
-      await api.put(`/gigs/${earningsGig.id}/my-earnings`, {
-        amount: earningsAmount,
-        collected_amount: collected,
-      });
-      setGigs((prev) =>
-        prev.map((g) =>
-          g.id === earningsGig.id
-            ? { ...g, my_amount: Number(earningsAmount), my_collected: collected }
-            : g,
-        ),
-      );
-      setEarningsGig(null);
-      setEarningsAmount("");
-      setEarningsCollected("");
-    } catch (error) {
-      console.error("Error al guardar pago:", error);
-    }
-  };
-
   const saveCollected = async (amount: number | null) => {
     if (!collectedGig) return;
     try {
-      await api.put(`/gigs/${collectedGig.id}/collected`, { amount });
-      setGigs((prev) =>
-        prev.map((g) =>
-          g.id === collectedGig.id ? { ...g, collected_amount: amount } : g,
-        ),
-      );
+      if (collectedGig.is_owner) {
+        await api.put(`/gigs/${collectedGig.id}/collected`, { amount });
+        setGigs((prev) =>
+          prev.map((g) =>
+            g.id === collectedGig.id ? { ...g, collected_amount: amount } : g,
+          ),
+        );
+      } else {
+        await api.put(`/gigs/${collectedGig.id}/my-earnings`, {
+          amount: null,
+          collected_amount: amount,
+        });
+        setGigs((prev) =>
+          prev.map((g) =>
+            g.id === collectedGig.id ? { ...g, my_collected: amount } : g,
+          ),
+        );
+      }
       setCollectedGig(null);
       setCollectedAmount("");
     } catch (error) {
@@ -528,27 +510,16 @@ export default function GigsPage() {
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="number"
-                  placeholder="Monto $ (opcional)"
-                  value={formData.amount}
-                  className="bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white placeholder:text-zinc-500"
-                  onChange={(e) =>
-                    setFormData({ ...formData, amount: e.target.value })
-                  }
-                />
-                <input
-                  type="number"
-                  placeholder="Horas"
-                  value={formData.hours}
-                  className="bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white placeholder:text-zinc-500"
-                  onChange={(e) =>
-                    setFormData({ ...formData, hours: e.target.value })
-                  }
-                  required
-                />
-              </div>
+              <input
+                type="number"
+                placeholder="Horas"
+                value={formData.hours}
+                className="bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white placeholder:text-zinc-500"
+                onChange={(e) =>
+                  setFormData({ ...formData, hours: e.target.value })
+                }
+                required
+              />
               <textarea
                 placeholder="Notas (opcional)"
                 value={formData.notes}
@@ -569,64 +540,6 @@ export default function GigsPage() {
         </div>
       )}
 
-      {/* Modal: mi pago en gig de banda */}
-      {earningsGig && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-full max-w-sm relative">
-            <button
-              onClick={() => { setEarningsGig(null); setEarningsAmount(""); setEarningsCollected(""); }}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-            <div className="flex items-center gap-2 mb-1">
-              <DollarSign size={18} className="text-green-400" />
-              <h2 className="text-xl font-bold">Mi pago</h2>
-            </div>
-            <p className="text-zinc-500 text-sm mb-5">
-              <span className="text-white font-semibold">{earningsGig.title}</span>
-            </p>
-            <form onSubmit={handleSaveEarnings} className="space-y-3">
-              <div>
-                <label className="text-xs text-zinc-500 font-bold uppercase mb-1.5 block">
-                  Monto acordado
-                </label>
-                <input
-                  type="number"
-                  placeholder="$0.00"
-                  value={earningsAmount}
-                  onChange={(e) => setEarningsAmount(e.target.value)}
-                  className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-green-500 text-white placeholder:text-zinc-500 text-xl font-bold"
-                  autoFocus
-                  required
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-500 font-bold uppercase mb-1.5 block">
-                  ¿Cuánto te han pagado ya? <span className="text-zinc-700 normal-case font-normal">(opcional)</span>
-                </label>
-                <input
-                  type="number"
-                  placeholder="$0.00"
-                  value={earningsCollected}
-                  onChange={(e) => setEarningsCollected(e.target.value)}
-                  className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-yellow-500 text-white placeholder:text-zinc-500"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full bg-green-600 hover:bg-green-700 font-bold py-6 cursor-pointer mt-1"
-              >
-                Guardar
-              </Button>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Modal: registrar cobro en gig personal */}
       {collectedGig && (
@@ -645,15 +558,7 @@ export default function GigsPage() {
             <p className="text-zinc-500 text-sm mb-1">
               <span className="text-white font-semibold">{collectedGig.title}</span>
             </p>
-            {collectedGig.amount != null && (
-              <p className="text-xs text-zinc-600 mb-5">
-                Monto acordado:{" "}
-                <span className="text-zinc-400 font-semibold">
-                  ${fmtMoney(collectedGig.amount)}
-                </span>
-              </p>
-            )}
-            <form onSubmit={handleSaveCollected} className="space-y-4">
+            <form onSubmit={handleSaveCollected} className="space-y-4 mt-4">
               <input
                 type="number"
                 placeholder="¿Cuánto cobraste? $"
@@ -664,16 +569,6 @@ export default function GigsPage() {
                 min="0"
                 step="0.01"
               />
-              {collectedAmount !== "" &&
-                collectedGig.amount != null &&
-                Number(collectedAmount) < Number(collectedGig.amount) && (
-                <p className="text-xs text-yellow-500/80">
-                  Falta por cobrar:{" "}
-                  <span className="font-bold">
-                    ${fmtMoney(Number(collectedGig.amount) - Number(collectedAmount))}
-                  </span>
-                </p>
-              )}
               <div className="flex gap-2">
                 {collectedGig.collected_amount != null && (
                   <Button
@@ -816,114 +711,40 @@ export default function GigsPage() {
                     </div>
 
                     <div className="mt-4 pt-4 border-t border-zinc-800">
-                      {gig.is_owner ? (
-                        // Gig propio: monto + estado de cobro
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <p className="text-[10px] text-zinc-500 uppercase font-bold">
-                                Mi pago
-                              </p>
-                              {gig.amount != null ? (
-                                <span className="text-green-500 font-bold flex items-center gap-1 text-lg">
-                                  <DollarSign size={18} />
-                                  {fmtMoney(gig.amount)}
-                                </span>
-                              ) : (
-                                <span className="text-zinc-600 text-sm italic">Sin monto acordado</span>
-                              )}
-                            </div>
+                      {(() => {
+                        const cobro = gig.is_owner ? gig.collected_amount : gig.my_collected;
+                        const cobroNum = cobro != null ? Number(cobro) : null;
+                        return (
+                          <div className="space-y-2">
                             {gig.notes && (
-                              <p className="text-xs text-zinc-600 italic max-w-30 text-right line-clamp-2">
+                              <p className="text-xs text-zinc-600 italic line-clamp-2 mb-1">
                                 {gig.notes}
                               </p>
                             )}
-                          </div>
-                          {/* Estado de cobro */}
-                          {gig.collected_amount == null ? (
-                            <button
-                              onClick={() => { setCollectedGig(gig); setCollectedAmount(""); }}
-                              className="text-xs text-zinc-600 hover:text-yellow-400 transition-colors cursor-pointer"
-                            >
-                              + Registrar cobro
-                            </button>
-                          ) : gig.amount != null && Number(gig.collected_amount) >= Number(gig.amount) ? (
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-green-400 flex items-center gap-1">
-                                <CheckCircle2 size={12} /> Cobrado completo
-                              </span>
+                            {cobroNum === null ? (
                               <button
-                                onClick={() => { setCollectedGig(gig); setCollectedAmount(String(gig.collected_amount)); }}
-                                className="text-[10px] text-zinc-600 hover:text-zinc-400 cursor-pointer transition-colors"
+                                onClick={() => { setCollectedGig(gig); setCollectedAmount(""); }}
+                                className="text-xs text-zinc-600 hover:text-yellow-400 transition-colors cursor-pointer"
                               >
-                                editar
+                                + Registrar cobro
                               </button>
-                            </div>
-                          ) : (
-                            <div className="space-y-1">
+                            ) : (
                               <div className="flex items-center justify-between">
-                                <span className="text-xs text-green-400 flex items-center gap-1">
-                                  <CheckCircle2 size={12} />
-                                  Cobrado ${fmtMoney(gig.collected_amount)}
-                                  {gig.amount != null && (
-                                    <span className="text-yellow-400">
-                                      {" "}— falta ${fmtMoney(Number(gig.amount) - Number(gig.collected_amount))}
-                                    </span>
-                                  )}
+                                <span className="text-green-400 font-bold flex items-center gap-1 text-base">
+                                  <CheckCircle2 size={14} />
+                                  ${fmtMoney(cobroNum)}
                                 </span>
                                 <button
-                                  onClick={() => { setCollectedGig(gig); setCollectedAmount(String(gig.collected_amount)); }}
-                                  className="text-[10px] text-zinc-600 hover:text-zinc-400 cursor-pointer transition-colors shrink-0 ml-2"
+                                  onClick={() => { setCollectedGig(gig); setCollectedAmount(String(cobroNum)); }}
+                                  className="text-[10px] text-zinc-600 hover:text-zinc-400 cursor-pointer transition-colors"
                                 >
-                                  editar
+                                  editar cobro
                                 </button>
                               </div>
-                              {gig.amount != null && (
-                                <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-yellow-500 rounded-full transition-all"
-                                    style={{ width: `${Math.min(100, (Number(gig.collected_amount) / Number(gig.amount)) * 100)}%` }}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ) : gig.my_amount != null ? (
-                        // Gig de banda con monto personal registrado
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="text-[10px] text-zinc-500 uppercase font-bold">
-                              Mi pago
-                            </p>
-                            <span className="text-green-500 font-bold flex items-center gap-1 text-lg">
-                              <DollarSign size={18} />
-                              {fmtMoney(gig.my_amount)}
-                            </span>
+                            )}
                           </div>
-                          <button
-                            onClick={() => {
-                              setEarningsGig(gig);
-                              setEarningsAmount(String(gig.my_amount));
-                              setEarningsCollected(gig.my_collected != null ? String(gig.my_collected) : "");
-                            }}
-                            className="text-[10px] text-zinc-600 hover:text-purple-400 transition-colors cursor-pointer"
-                          >
-                            Editar
-                          </button>
-                        </div>
-                      ) : (
-                        // Gig de banda sin monto personal
-                        <button
-                          onClick={() => {
-                            setEarningsGig(gig);
-                            setEarningsAmount("");
-                          }}
-                          className="w-full text-center text-sm text-zinc-600 hover:text-green-400 transition-colors py-0.5 cursor-pointer border border-dashed border-zinc-800 hover:border-green-500/40 rounded-lg"
-                        >
-                          + ¿Cuánto te tocó?
-                        </button>
-                      )}
+                        );
+                      })()}
                     </div>
 
                     {/* Elección de asistencia en conflictos */}
@@ -985,10 +806,9 @@ export default function GigsPage() {
       {viewMode === "month" && !loading && (
         <div className="space-y-8">
           {monthGroups.map(({ label, gigs: monthGigs }) => {
-            const monthTotal = monthGigs.reduce((acc, g) => {
-              if (g.is_owner) return acc + Number(g.amount);
-              if (g.my_amount != null) return acc + Number(g.my_amount);
-              return acc;
+            const monthCobrado = monthGigs.reduce((acc, g) => {
+              const c = g.is_owner ? g.collected_amount : g.my_collected;
+              return acc + (c != null ? Number(c) : 0);
             }, 0);
             return (
               <div key={label}>
@@ -1001,9 +821,11 @@ export default function GigsPage() {
                       {monthGigs.length}{" "}
                       {monthGigs.length === 1 ? "tocada" : "tocadas"}
                     </span>
-                    <span className="text-sm font-bold text-green-400">
-                      ${fmtMoney(monthTotal)}
-                    </span>
+                    {monthCobrado > 0 && (
+                      <span className="text-sm font-bold text-green-400">
+                        ${fmtMoney(monthCobrado)}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1110,27 +932,30 @@ export default function GigsPage() {
                           )}
                         </div>
 
-                        {/* Monto */}
-                        {gig.is_owner ? (
-                          gig.amount != null ? (
-                            <span className={`text-sm font-bold shrink-0 ${isPast ? "text-zinc-600" : "text-green-400"}`}>
-                              ${fmtMoney(gig.amount)}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-zinc-700 italic shrink-0">Sin monto</span>
-                          )
-                        ) : gig.my_amount != null ? (
-                          <span className={`text-sm font-bold shrink-0 ${isPast ? "text-zinc-600" : "text-green-400"}`}>
-                            ${fmtMoney(gig.my_amount)}
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => { setEarningsGig(gig); setEarningsAmount(""); setEarningsCollected(""); }}
-                            className="text-xs text-zinc-700 hover:text-green-400 transition-colors shrink-0 cursor-pointer"
-                          >
-                            + Mi pago
-                          </button>
-                        )}
+                        {/* Cobro */}
+                        {(() => {
+                          const cobro = gig.is_owner ? gig.collected_amount : gig.my_collected;
+                          const cobroNum = cobro != null ? Number(cobro) : null;
+                          if (cobroNum !== null) {
+                            return (
+                              <span className={`text-sm font-bold shrink-0 flex items-center gap-1 ${isPast ? "text-green-500/70" : "text-green-400"}`}>
+                                <CheckCircle2 size={12} />
+                                ${fmtMoney(cobroNum)}
+                              </span>
+                            );
+                          }
+                          if (isPast) {
+                            return (
+                              <button
+                                onClick={() => { setCollectedGig(gig); setCollectedAmount(""); }}
+                                className="text-xs text-zinc-700 hover:text-yellow-400 transition-colors shrink-0 cursor-pointer"
+                              >
+                                + Cobro
+                              </button>
+                            );
+                          }
+                          return null;
+                        })()}
 
                         {/* Acciones hover */}
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

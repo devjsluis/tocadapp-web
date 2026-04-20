@@ -82,11 +82,6 @@ function fmtDate(dateStr: string): string {
   });
 }
 
-function effectiveAmount(gig: Gig): number | null {
-  if (gig.is_owner) return gig.amount != null ? Number(gig.amount) : null;
-  return gig.my_amount != null ? Number(gig.my_amount) : null;
-}
-
 function effectiveCollected(gig: Gig): number | null {
   if (gig.is_owner)
     return gig.collected_amount != null ? Number(gig.collected_amount) : null;
@@ -94,7 +89,7 @@ function effectiveCollected(gig: Gig): number | null {
 }
 
 function countsInFinances(gig: Gig): boolean {
-  return effectiveAmount(gig) !== null || effectiveCollected(gig) !== null;
+  return effectiveCollected(gig) !== null;
 }
 
 const Skeleton = ({ className = "" }: { className?: string }) => (
@@ -144,42 +139,14 @@ export default function FinancesPage() {
   const pastGigs = allPastGigs.filter(countsInFinances);
   const futureGigs = allFutureGigs.filter(countsInFinances);
 
-  // ── Cobros reales (lo único que cuenta como "ganado") ──
-  const pastGigsWithCollected = pastGigs.filter(
-    (g) => effectiveCollected(g) !== null,
-  );
-  const totalCollected = pastGigsWithCollected.reduce(
+  // ── Cobros: única fuente de verdad financiera ──
+  const totalCollected = pastGigs.reduce(
     (acc, g) => acc + (effectiveCollected(g) ?? 0),
     0,
   );
-  const collectedHours = pastGigsWithCollected.reduce(
-    (acc, g) => acc + Number(g.hours),
-    0,
-  );
+  const collectedHours = pastGigs.reduce((acc, g) => acc + Number(g.hours), 0);
   const tarifaReal = collectedHours > 0 ? totalCollected / collectedHours : 0;
-
-  // Monto pactado en pasadas (referencia, no "ganado")
-  const earned = pastGigs.reduce(
-    (acc, g) => acc + (effectiveAmount(g) ?? 0),
-    0,
-  );
-  const earnedHours = pastGigs.reduce((acc, g) => acc + Number(g.hours), 0);
-
-  const pendingFromPast = pastGigs.reduce((acc, g) => {
-    const ea = effectiveAmount(g) ?? 0;
-    const ec = effectiveCollected(g) ?? 0;
-    return acc + Math.max(0, ea - ec);
-  }, 0);
-  const unregisteredPastCount = pastGigs.filter(
-    (g) => effectiveCollected(g) === null,
-  ).length;
-  const hasCollectedTracking = pastGigsWithCollected.length > 0;
-
-  const pendingGigsList = pastGigs.filter((g) => {
-    const ec = effectiveCollected(g);
-    const ea = effectiveAmount(g);
-    return ec === null || (ea !== null && ec < ea);
-  });
+  const hasCollectedTracking = pastGigs.length > 0;
 
   // ── Gastos ──
   const totalExpenses = expenses.reduce(
@@ -199,40 +166,23 @@ export default function FinancesPage() {
     (a, b) => b[1] - a[1],
   )[0] ?? null;
 
-  // ── Métricas futuras ──
-  const pending = futureGigs.reduce(
-    (acc, g) => acc + (effectiveAmount(g) ?? 0),
-    0,
-  );
-
-  // ── Barra anual (3 segmentos: cobrado · por cobrar · por venir) ──
+  // ── Barra anual (2 segmentos: cobrado · tocadas por hacer) ──
   const currentYear = today.getFullYear();
   const yearPastGigs = pastGigs.filter(
     (g) => parseLocalDate(g.date).getFullYear() === currentYear,
   );
-  const yearFutureGigs = futureGigs.filter(
+  const yearFutureGigs = allFutureGigs.filter(
     (g) => parseLocalDate(g.date).getFullYear() === currentYear,
   );
   const yearCollected = yearPastGigs.reduce(
     (acc, g) => acc + (effectiveCollected(g) ?? 0),
     0,
   );
-  const yearPendingPast = yearPastGigs.reduce((acc, g) => {
-    const ea = effectiveAmount(g) ?? 0;
-    const ec = effectiveCollected(g) ?? 0;
-    return acc + Math.max(0, ea - ec);
-  }, 0);
-  const yearFutureAmt = yearFutureGigs.reduce(
-    (acc, g) => acc + (effectiveAmount(g) ?? 0),
-    0,
-  );
-  const yearBarTotal = yearCollected + yearPendingPast + yearFutureAmt;
+  const yearFutureCount = yearFutureGigs.length;
+  const yearPastCount = yearPastGigs.length;
+  const yearTotalGigs = yearPastCount + yearFutureCount;
   const yearCollectedPct =
-    yearBarTotal > 0 ? (yearCollected / yearBarTotal) * 100 : 0;
-  const yearPendingPct =
-    yearBarTotal > 0 ? (yearPendingPast / yearBarTotal) * 100 : 0;
-  const yearFuturePct =
-    yearBarTotal > 0 ? (yearFutureAmt / yearBarTotal) * 100 : 0;
+    yearTotalGigs > 0 ? (yearPastCount / yearTotalGigs) * 100 : 0;
 
   // ── Comparativa mensual (cobros reales) ──
   const thisMonth = today.getMonth();
@@ -263,7 +213,7 @@ export default function FinancesPage() {
 
   // ── Mejor mes (por cobrado) ──
   const byMonth = new Map<string, { total: number; label: string }>();
-  pastGigsWithCollected.forEach((g) => {
+  pastGigs.forEach((g) => {
     const d = parseLocalDate(g.date);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const label = d.toLocaleDateString("es-MX", {
@@ -287,10 +237,6 @@ export default function FinancesPage() {
         ? allFutureGigs
         : gigs;
 
-  const tableTotal = tableGigs.reduce(
-    (acc, g) => acc + (effectiveAmount(g) ?? 0),
-    0,
-  );
   const tableHours = tableGigs.reduce((acc, g) => acc + Number(g.hours), 0);
 
   const isEmpty = !loading && gigs.length === 0;
@@ -366,28 +312,17 @@ export default function FinancesPage() {
                     <span className="text-green-400 font-bold">
                       ${fmt(yearCollected)}
                     </span>
-                    <span className="text-zinc-600"> cobrados</span>
+                    <span className="text-zinc-600"> cobrados en {yearPastCount} tocadas</span>
                   </span>
-                  {yearPendingPast > 0 && (
-                    <span>
-                      <span className="text-yellow-400 font-bold">
-                        · ${fmt(yearPendingPast)}
-                      </span>
-                      <span className="text-zinc-600"> por cobrar</span>
-                    </span>
-                  )}
-                  {yearFutureAmt > 0 && (
-                    <span>
-                      <span className="text-blue-400 font-bold">
-                        · ${fmt(yearFutureAmt)}
-                      </span>
-                      <span className="text-zinc-600"> por venir</span>
+                  {yearFutureCount > 0 && (
+                    <span className="text-zinc-600">
+                      · {yearFutureCount} por venir
                     </span>
                   )}
                 </p>
               </div>
               <span className="text-2xl font-bold text-white">
-                {yearBarTotal > 0 ? `${yearCollectedPct.toFixed(0)}%` : "—"}
+                {yearTotalGigs > 0 ? `${yearCollectedPct.toFixed(0)}%` : "—"}
               </span>
             </div>
             {loading ? (
@@ -399,26 +334,18 @@ export default function FinancesPage() {
                   style={{ width: `${yearCollectedPct}%` }}
                 />
                 <div
-                  className="h-full bg-linear-to-r from-yellow-700/70 to-yellow-500/50 transition-all duration-700"
-                  style={{ width: `${yearPendingPct}%` }}
-                />
-                <div
-                  className="h-full bg-linear-to-r from-blue-700/60 to-blue-500/40 transition-all duration-700"
-                  style={{ width: `${yearFuturePct}%` }}
+                  className="h-full bg-zinc-700/40 transition-all duration-700"
+                  style={{ width: `${100 - yearCollectedPct}%` }}
                 />
               </div>
             )}
             <div className="flex gap-4 mt-2 text-[11px] text-zinc-600">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-                Cobrado
+                Tocadas realizadas
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-yellow-500/70 inline-block" />
-                Por cobrar
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-blue-500/60 inline-block" />
+                <span className="w-2 h-2 rounded-full bg-zinc-700 inline-block" />
                 Por venir
               </span>
             </div>
@@ -476,7 +403,7 @@ export default function FinancesPage() {
                   </h3>
                 )}
                 <p className="text-[11px] text-zinc-600 mt-1.5">
-                  {pastGigsWithCollected.length} tocadas registradas
+                  {pastGigs.length} tocadas realizadas
                 </p>
               </div>
 
@@ -500,29 +427,13 @@ export default function FinancesPage() {
               </div>
             </div>
 
-            {/* Segunda fila: métricas ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-              <Card
-                loading={loading}
-                icon={<AlertCircle size={16} className="text-yellow-400" />}
-                color="yellow"
-                title="Por cobrar"
-                value={`$${fmt(pendingFromPast)}`}
-                sub="Tocadas pasadas sin cobrar todo"
-              />
-              <Card
-                loading={loading}
-                icon={<HelpCircle size={16} className="text-zinc-400" />}
-                color="purple"
-                title="Sin registrar"
-                value={`${unregisteredPastCount} tocada${unregisteredPastCount !== 1 ? "s" : ""}`}
-                sub="Sin dato de cobro"
-              />
+            {/* Segunda fila: métricas */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
               <Card
                 loading={loading}
                 icon={<BarChart3 size={16} className="text-blue-400" />}
                 color="blue"
-                title="Tarifa real / hora"
+                title="Tarifa / hora"
                 value={tarifaReal > 0 ? `$${fmt(tarifaReal)}` : "—"}
                 sub="Cobrado ÷ horas trabajadas"
               />
@@ -531,115 +442,18 @@ export default function FinancesPage() {
                 icon={<Clock size={16} className="text-zinc-400" />}
                 color="purple"
                 title="Horas tocadas"
-                value={`${earnedHours.toLocaleString("en-US")} hrs`}
+                value={`${collectedHours.toLocaleString("en-US")} hrs`}
                 sub="Tiempo trabajado"
               />
+              <Card
+                loading={loading}
+                icon={<TrendingUp size={16} className="text-purple-400" />}
+                color="purple"
+                title="Promedio / tocada"
+                value={pastGigs.length > 0 ? `$${fmt(totalCollected / pastGigs.length)}` : "—"}
+                sub={`${pastGigs.length} eventos`}
+              />
             </div>
-
-            {/* Barra cobrado vs por cobrar */}
-            {!loading && hasCollectedTracking && (() => {
-              const total = totalCollected + pendingFromPast;
-              const pct = total > 0 ? (totalCollected / total) * 100 : 0;
-              return total > 0 ? (
-                <div className="mt-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-                  <div className="flex justify-between items-center mb-3">
-                    <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide">
-                      Cobrado vs Pendiente
-                    </p>
-                    <span className="text-sm font-bold text-white">
-                      {pct.toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className="h-3 bg-zinc-800 rounded-full overflow-hidden flex">
-                    <div
-                      className="h-full bg-linear-to-r from-green-600 to-green-400 transition-all duration-700"
-                      style={{ width: `${pct}%` }}
-                    />
-                    <div
-                      className="h-full bg-linear-to-r from-yellow-700/60 to-yellow-500/40 transition-all duration-700"
-                      style={{ width: `${100 - pct}%` }}
-                    />
-                  </div>
-                  <div className="flex gap-4 mt-2 text-[11px] text-zinc-600">
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-                      Cobrado
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-yellow-500/60 inline-block" />
-                      Por cobrar
-                    </span>
-                  </div>
-                </div>
-              ) : null;
-            })()}
-
-            {/* Lista de tocadas con cobro pendiente */}
-            {!loading && pendingGigsList.length > 0 && (
-              <div className="mt-4 bg-zinc-900/50 border border-yellow-500/10 rounded-2xl overflow-hidden">
-                <div className="px-5 py-3 border-b border-zinc-800/60">
-                  <p className="text-xs text-zinc-500 font-semibold uppercase tracking-wide">
-                    Tocadas pasadas con cobro incompleto
-                  </p>
-                </div>
-                {pendingGigsList.map((gig, idx) => {
-                  const ea = effectiveAmount(gig);
-                  const ec = effectiveCollected(gig) ?? 0;
-                  const falta = ea != null ? ea - ec : null;
-                  const pct = ea != null && ea > 0 ? (ec / ea) * 100 : null;
-                  const isLast = idx === pendingGigsList.length - 1;
-                  return (
-                    <div
-                      key={gig.id}
-                      className={`flex items-center gap-4 px-5 py-4 ${!isLast ? "border-b border-zinc-800/60" : ""}`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-sm font-semibold text-zinc-300 truncate">
-                            {gig.title}
-                          </p>
-                          {gig.band_name && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold shrink-0">
-                              {gig.band_name}
-                            </span>
-                          )}
-                        </div>
-                        <p
-                          className="text-xs text-zinc-600 mt-0.5 capitalize"
-                          suppressHydrationWarning
-                        >
-                          {fmtDate(gig.date)}
-                        </p>
-                        {pct !== null && (
-                          <div className="mt-1.5 h-1 bg-zinc-800 rounded-full overflow-hidden w-full max-w-48">
-                            <div
-                              className="h-full bg-yellow-500 rounded-full"
-                              style={{ width: `${Math.min(100, pct)}%` }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right shrink-0">
-                        {ec > 0 && (
-                          <p className="text-xs text-zinc-500">
-                            Cobrado ${fmt(ec)}
-                          </p>
-                        )}
-                        {falta !== null ? (
-                          <p className="text-sm font-bold text-yellow-400">
-                            Falta ${fmt(falta)}
-                          </p>
-                        ) : (
-                          <p className="text-sm font-bold text-zinc-600 italic">
-                            Sin monto
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
 
             {/* Este mes vs anterior + Mejor mes */}
             {!loading && pastGigs.length > 0 && (
@@ -898,17 +712,9 @@ export default function FinancesPage() {
                     loading={loading}
                     icon={<Banknote size={16} className="text-blue-400" />}
                     color="blue"
-                    title="Total esperado"
-                    value={pending > 0 ? `$${fmt(pending)}` : "—"}
-                    sub="Ingresos contratados"
-                  />
-                  <Card
-                    loading={loading}
-                    icon={<Music size={16} className="text-purple-400" />}
-                    color="purple"
-                    title="Tocadas agendadas"
+                    title="Tocadas por venir"
                     value={allFutureGigs.length.toString()}
-                    sub="Próximos eventos"
+                    sub="Próximos eventos agendados"
                   />
                   <Card
                     loading={loading}
@@ -924,7 +730,6 @@ export default function FinancesPage() {
                   {allFutureGigs.map((gig, idx) => {
                     const d = parseLocalDate(gig.date);
                     const isLast = idx === allFutureGigs.length - 1;
-                    const ea = effectiveAmount(gig);
                     return (
                       <div
                         key={gig.id}
@@ -967,20 +772,7 @@ export default function FinancesPage() {
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          {ea !== null ? (
-                            <>
-                              <p className="text-sm font-bold text-blue-300">
-                                ${fmt(ea)}
-                              </p>
-                              <p className="text-[10px] text-zinc-600 mt-0.5">
-                                Contratado
-                              </p>
-                            </>
-                          ) : (
-                            <p className="text-xs text-zinc-700 italic">
-                              Sin monto
-                            </p>
-                          )}
+                          <p className="text-xs text-zinc-600 italic">Por venir</p>
                         </div>
                       </div>
                     );
@@ -1034,9 +826,6 @@ export default function FinancesPage() {
                         <th className="px-5 py-3 text-right font-semibold hidden sm:table-cell">
                           Horas
                         </th>
-                        <th className="px-5 py-3 text-right font-semibold hidden sm:table-cell">
-                          Pactado
-                        </th>
                         <th className="px-5 py-3 text-right font-semibold">
                           Cobrado
                         </th>
@@ -1045,7 +834,6 @@ export default function FinancesPage() {
                     <tbody>
                       {tableGigs.map((gig) => {
                         const isPast = parseLocalDate(gig.date) < today;
-                        const ea = effectiveAmount(gig);
                         const ec = isPast ? effectiveCollected(gig) : null;
                         return (
                           <tr
@@ -1078,13 +866,6 @@ export default function FinancesPage() {
                             <td className="px-5 py-3 text-right text-zinc-500 hidden sm:table-cell">
                               {Number(gig.hours).toLocaleString("en-US")}
                             </td>
-                            <td className="px-5 py-3 text-right text-zinc-600 hidden sm:table-cell whitespace-nowrap">
-                              {ea !== null ? (
-                                `$${fmt(ea)}`
-                              ) : (
-                                <span className="italic text-zinc-700 text-xs">—</span>
-                              )}
-                            </td>
                             <td className="px-5 py-3 text-right font-bold whitespace-nowrap">
                               {!isPast ? (
                                 <span className="text-zinc-700 text-xs">—</span>
@@ -1112,9 +893,6 @@ export default function FinancesPage() {
                         </td>
                         <td className="px-5 py-3.5 text-right text-zinc-500 hidden sm:table-cell">
                           {tableHours.toLocaleString("en-US")} hrs
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-zinc-600 hidden sm:table-cell">
-                          ${fmt(tableTotal)}
                         </td>
                         <td className="px-5 py-3.5 text-right font-bold text-green-400">
                           $
