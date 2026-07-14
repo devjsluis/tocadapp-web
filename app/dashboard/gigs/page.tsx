@@ -7,7 +7,6 @@ import {
   Calendar,
   MapPin,
   Clock,
-  DollarSign,
   X,
   Music,
   Pencil,
@@ -58,6 +57,8 @@ type FormData = {
 };
 
 type ViewMode = "grid" | "month";
+
+type GigFilter = "upcoming" | "past" | "all";
 
 const emptyForm: FormData = {
   title: "",
@@ -208,6 +209,7 @@ export default function GigsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [gigFilter, setGigFilter] = useState<GigFilter>("upcoming");
   const [formData, setFormData] = useState<FormData>(emptyForm);
   const [collectedGig, setCollectedGig] = useState<Gig | null>(null);
   const [collectedAmount, setCollectedAmount] = useState("");
@@ -238,6 +240,46 @@ export default function GigsPage() {
   }, []);
 
   const conflictingIds = getConflictingIds(gigs);
+
+  const now = new Date();
+
+  const getGigDate = (gig: Gig) =>
+    new Date(`${gig.date.split("T")[0]}T${gig.time}`);
+
+  const upcomingCardGigs = gigs
+    .filter((gig) => getGigDate(gig) >= now)
+    .sort((a, b) => getGigDate(a).getTime() - getGigDate(b).getTime());
+
+  const pastCardGigs = gigs
+    .filter((gig) => getGigDate(gig) < now)
+    .sort((a, b) => getGigDate(b).getTime() - getGigDate(a).getTime());
+
+  const filteredCardGigs =
+    gigFilter === "upcoming"
+      ? upcomingCardGigs
+      : gigFilter === "past"
+        ? pastCardGigs
+        : [...upcomingCardGigs, ...pastCardGigs];
+
+  const monthSortedGigs = [...gigs].sort((a, b) => {
+    const dateA = getGigDate(a);
+    const dateB = getGigDate(b);
+
+    if (gigFilter === "upcoming") {
+      return dateA.getTime() - dateB.getTime();
+    }
+
+    return dateB.getTime() - dateA.getTime();
+  });
+
+  const filteredMonthGigs = monthSortedGigs.filter((gig) => {
+    const gigDate = new Date(`${gig.date.split("T")[0]}T${gig.time}`);
+
+    if (gigFilter === "upcoming") return gigDate >= now;
+    if (gigFilter === "past") return gigDate < now;
+
+    return true;
+  });
 
   const openCreate = () => {
     setEditingGig(null);
@@ -299,11 +341,16 @@ export default function GigsPage() {
     }
   };
 
-  const handleSetAttending = async (gigId: string, attending: boolean | null) => {
+  const handleSetAttending = async (
+    gigId: string,
+    attending: boolean | null,
+  ) => {
     try {
       await api.put(`/gigs/${gigId}/attending`, { attending });
       setGigs((prev) =>
-        prev.map((g) => (g.id === gigId ? { ...g, my_attending: attending } : g)),
+        prev.map((g) =>
+          g.id === gigId ? { ...g, my_attending: attending } : g,
+        ),
       );
     } catch (error) {
       console.error("Error al guardar asistencia:", error);
@@ -347,12 +394,15 @@ export default function GigsPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const monthGroups = groupByMonth(gigs);
+  const monthGroups = groupByMonth(filteredMonthGigs);
 
   const ActionButtons = ({ gig }: { gig: Gig }) => {
     if (!gig.is_owner) {
       return (
-        <div className="flex items-center gap-1 text-zinc-600" title="Gig de banda (solo lectura)">
+        <div
+          className="flex items-center gap-1 text-zinc-600"
+          title="Gig de banda (solo lectura)"
+        >
           <Lock size={13} />
         </div>
       );
@@ -391,33 +441,6 @@ export default function GigsPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {!loading && gigs.length > 0 && (
-            <div className="flex bg-zinc-900 border border-zinc-800 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode("grid")}
-                title="Vista en tarjetas"
-                className={`p-2 rounded-md transition-colors cursor-pointer ${
-                  viewMode === "grid"
-                    ? "bg-zinc-700 text-white"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                <LayoutGrid size={16} />
-              </button>
-              <button
-                onClick={() => setViewMode("month")}
-                title="Vista por mes"
-                className={`p-2 rounded-md transition-colors cursor-pointer ${
-                  viewMode === "month"
-                    ? "bg-zinc-700 text-white"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                <List size={16} />
-              </button>
-            </div>
-          )}
-
           <Button
             onClick={openCreate}
             className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 transition-all active:scale-95 cursor-pointer"
@@ -426,6 +449,56 @@ export default function GigsPage() {
           </Button>
         </div>
       </div>
+
+      {!loading && gigs.length > 0 && (
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 w-full sm:w-fit">
+            {[
+              { key: "upcoming", label: "Próximas" },
+              { key: "past", label: "Pasadas" },
+              { key: "all", label: "Todas" },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setGigFilter(tab.key as GigFilter)}
+                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+                  gigFilter === tab.key
+                    ? "bg-purple-600 text-white"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 w-full sm:w-fit">
+            <button
+              onClick={() => setViewMode("grid")}
+              title="Vista en tarjetas"
+              className={`flex-1 sm:flex-none p-2 rounded-lg transition-colors cursor-pointer ${
+                viewMode === "grid"
+                  ? "bg-zinc-700 text-white"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <LayoutGrid size={16} className="mx-auto" />
+            </button>
+
+            <button
+              onClick={() => setViewMode("month")}
+              title="Vista por mes"
+              className={`flex-1 sm:flex-none p-2 rounded-lg transition-colors cursor-pointer ${
+                viewMode === "month"
+                  ? "bg-zinc-700 text-white"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <List size={16} className="mx-auto" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal crear / editar */}
       {showForm && (
@@ -464,9 +537,7 @@ export default function GigsPage() {
               />
               <datalist id="places-list">
                 {[
-                  ...new Set(
-                    gigs.map((g) => g.place.trim()).filter(Boolean),
-                  ),
+                  ...new Set(gigs.map((g) => g.place.trim()).filter(Boolean)),
                 ].map((p) => (
                   <option key={p} value={p} />
                 ))}
@@ -540,13 +611,15 @@ export default function GigsPage() {
         </div>
       )}
 
-
       {/* Modal: registrar cobro en gig personal */}
       {collectedGig && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-full max-w-sm relative">
             <button
-              onClick={() => { setCollectedGig(null); setCollectedAmount(""); }}
+              onClick={() => {
+                setCollectedGig(null);
+                setCollectedAmount("");
+              }}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"
             >
               <X size={20} />
@@ -556,7 +629,9 @@ export default function GigsPage() {
               <h2 className="text-xl font-bold">Registrar cobro</h2>
             </div>
             <p className="text-zinc-500 text-sm mb-1">
-              <span className="text-white font-semibold">{collectedGig.title}</span>
+              <span className="text-white font-semibold">
+                {collectedGig.title}
+              </span>
             </p>
             <form onSubmit={handleSaveCollected} className="space-y-4 mt-4">
               <input
@@ -625,8 +700,14 @@ export default function GigsPage() {
             className="text-yellow-500 shrink-0 mt-0.5"
           />
           <p className="text-sm text-yellow-400">
-            Tienes <strong>{conflictingIds.size / 2 >= 1 ? Math.ceil(conflictingIds.size / 2) : 1} conflicto(s)</strong> de horario —
-            dos o más tocadas se empalman el mismo día y hora.
+            Tienes{" "}
+            <strong>
+              {conflictingIds.size / 2 >= 1
+                ? Math.ceil(conflictingIds.size / 2)
+                : 1}{" "}
+              conflicto(s)
+            </strong>{" "}
+            de horario — dos o más tocadas se empalman el mismo día y hora.
           </p>
         </div>
       )}
@@ -635,10 +716,8 @@ export default function GigsPage() {
       {viewMode === "grid" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {loading
-            ? Array.from({ length: 6 }).map((_, i) => (
-                <GigSkeleton key={i} />
-              ))
-            : gigs.map((gig) => {
+            ? Array.from({ length: 6 }).map((_, i) => <GigSkeleton key={i} />)
+            : filteredCardGigs.map((gig) => {
                 const isPast = parseLocalDate(gig.date) < today;
                 const hasConflict = conflictingIds.has(gig.id);
                 return (
@@ -655,7 +734,7 @@ export default function GigsPage() {
                     }`}
                   >
                     {/* Acciones hover */}
-                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-3 right-3 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       <ActionButtons gig={gig} />
                     </div>
 
@@ -673,9 +752,7 @@ export default function GigsPage() {
                         >
                           {isPast ? "Pasada" : "Próxima"}
                         </span>
-                        {gig.band_name && (
-                          <BandBadge name={gig.band_name} />
-                        )}
+                        {gig.band_name && <BandBadge name={gig.band_name} />}
                         {hasConflict && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-bold flex items-center gap-1">
                             <AlertTriangle size={9} /> Conflicto
@@ -714,7 +791,9 @@ export default function GigsPage() {
 
                     <div className="mt-4 pt-4 border-t border-zinc-800">
                       {(() => {
-                        const cobro = gig.is_owner ? gig.collected_amount : gig.my_collected;
+                        const cobro = gig.is_owner
+                          ? gig.collected_amount
+                          : gig.my_collected;
                         const cobroNum = cobro != null ? Number(cobro) : null;
                         return (
                           <div className="space-y-2">
@@ -725,7 +804,10 @@ export default function GigsPage() {
                             )}
                             {cobroNum === null ? (
                               <button
-                                onClick={() => { setCollectedGig(gig); setCollectedAmount(""); }}
+                                onClick={() => {
+                                  setCollectedGig(gig);
+                                  setCollectedAmount("");
+                                }}
                                 className="text-xs text-zinc-600 hover:text-yellow-400 transition-colors cursor-pointer"
                               >
                                 + Registrar cobro
@@ -733,11 +815,14 @@ export default function GigsPage() {
                             ) : (
                               <div className="flex items-center justify-between">
                                 <span className="text-green-400 font-bold flex items-center gap-1 text-base">
-                                  <CheckCircle2 size={14} />
-                                  ${fmtMoney(cobroNum)}
+                                  <CheckCircle2 size={14} />$
+                                  {fmtMoney(cobroNum)}
                                 </span>
                                 <button
-                                  onClick={() => { setCollectedGig(gig); setCollectedAmount(String(cobroNum)); }}
+                                  onClick={() => {
+                                    setCollectedGig(gig);
+                                    setCollectedAmount(String(cobroNum));
+                                  }}
                                   className="text-[10px] text-zinc-600 hover:text-zinc-400 cursor-pointer transition-colors"
                                 >
                                   editar cobro
@@ -765,7 +850,9 @@ export default function GigsPage() {
                                 Sí, voy
                               </button>
                               <button
-                                onClick={() => handleSetAttending(gig.id, false)}
+                                onClick={() =>
+                                  handleSetAttending(gig.id, false)
+                                }
                                 className="text-xs px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 text-zinc-400 transition-colors cursor-pointer"
                               >
                                 No voy
@@ -786,7 +873,9 @@ export default function GigsPage() {
                               ) : (
                                 <XCircle size={13} />
                               )}
-                              {gig.my_attending ? "Vas a esta" : "No vas a esta"}
+                              {gig.my_attending
+                                ? "Vas a esta"
+                                : "No vas a esta"}
                             </span>
                             <button
                               onClick={() => handleSetAttending(gig.id, null)}
@@ -863,7 +952,10 @@ export default function GigsPage() {
                           <span className="text-sm font-bold leading-none">
                             {d.getDate()}
                           </span>
-                          <span className="text-[9px] uppercase mt-0.5 opacity-70" suppressHydrationWarning>
+                          <span
+                            className="text-[9px] uppercase mt-0.5 opacity-70"
+                            suppressHydrationWarning
+                          >
                             {d.toLocaleDateString("es-MX", {
                               weekday: "short",
                             })}
@@ -893,8 +985,8 @@ export default function GigsPage() {
                               <MapPin size={11} /> {gig.place}
                             </span>
                             <span className="flex items-center gap-1">
-                              <Clock size={11} />{" "}
-                              {String(gig.time).slice(0, 5)} · {gig.hours} hrs
+                              <Clock size={11} /> {String(gig.time).slice(0, 5)}{" "}
+                              · {gig.hours} hrs
                             </span>
                           </div>
                           {/* Elección compacta en conflicto */}
@@ -902,15 +994,21 @@ export default function GigsPage() {
                             <div className="flex items-center gap-2 mt-1">
                               {gig.my_attending == null ? (
                                 <>
-                                  <span className="text-[10px] text-yellow-500/70">¿Vas?</span>
+                                  <span className="text-[10px] text-yellow-500/70">
+                                    ¿Vas?
+                                  </span>
                                   <button
-                                    onClick={() => handleSetAttending(gig.id, true)}
+                                    onClick={() =>
+                                      handleSetAttending(gig.id, true)
+                                    }
                                     className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-green-500/20 hover:text-green-400 text-zinc-500 cursor-pointer transition-colors"
                                   >
                                     Sí
                                   </button>
                                   <button
-                                    onClick={() => handleSetAttending(gig.id, false)}
+                                    onClick={() =>
+                                      handleSetAttending(gig.id, false)
+                                    }
                                     className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 text-zinc-500 cursor-pointer transition-colors"
                                   >
                                     No
@@ -918,12 +1016,20 @@ export default function GigsPage() {
                                 </>
                               ) : (
                                 <>
-                                  <span className={`text-[10px] font-semibold flex items-center gap-1 ${gig.my_attending ? "text-green-400" : "text-red-400"}`}>
-                                    {gig.my_attending ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
+                                  <span
+                                    className={`text-[10px] font-semibold flex items-center gap-1 ${gig.my_attending ? "text-green-400" : "text-red-400"}`}
+                                  >
+                                    {gig.my_attending ? (
+                                      <CheckCircle2 size={11} />
+                                    ) : (
+                                      <XCircle size={11} />
+                                    )}
                                     {gig.my_attending ? "Vas" : "No vas"}
                                   </span>
                                   <button
-                                    onClick={() => handleSetAttending(gig.id, null)}
+                                    onClick={() =>
+                                      handleSetAttending(gig.id, null)
+                                    }
                                     className="text-[10px] text-zinc-600 hover:text-zinc-400 cursor-pointer transition-colors"
                                   >
                                     cambiar
@@ -936,20 +1042,26 @@ export default function GigsPage() {
 
                         {/* Cobro */}
                         {(() => {
-                          const cobro = gig.is_owner ? gig.collected_amount : gig.my_collected;
+                          const cobro = gig.is_owner
+                            ? gig.collected_amount
+                            : gig.my_collected;
                           const cobroNum = cobro != null ? Number(cobro) : null;
                           if (cobroNum !== null) {
                             return (
-                              <span className={`text-sm font-bold shrink-0 flex items-center gap-1 ${isPast ? "text-green-500/70" : "text-green-400"}`}>
-                                <CheckCircle2 size={12} />
-                                ${fmtMoney(cobroNum)}
+                              <span
+                                className={`text-sm font-bold shrink-0 flex items-center gap-1 ${isPast ? "text-green-500/70" : "text-green-400"}`}
+                              >
+                                <CheckCircle2 size={12} />${fmtMoney(cobroNum)}
                               </span>
                             );
                           }
                           if (isPast) {
                             return (
                               <button
-                                onClick={() => { setCollectedGig(gig); setCollectedAmount(""); }}
+                                onClick={() => {
+                                  setCollectedGig(gig);
+                                  setCollectedAmount("");
+                                }}
                                 className="text-xs text-zinc-700 hover:text-yellow-400 transition-colors shrink-0 cursor-pointer"
                               >
                                 + Cobro
@@ -960,7 +1072,7 @@ export default function GigsPage() {
                         })()}
 
                         {/* Acciones hover */}
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
                           <ActionButtons gig={gig} />
                         </div>
                       </div>
