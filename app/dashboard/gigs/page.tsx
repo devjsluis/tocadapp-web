@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/axios";
 import {
   Plus,
@@ -264,6 +264,8 @@ export default function GigsPage() {
     new Date(),
   );
 
+  const touchStartX = useRef<number | null>(null);
+
   const fetchGigs = async () => {
     try {
       const { data } = await api.get("/gigs");
@@ -521,6 +523,30 @@ export default function GigsPage() {
     setCalendarDate(new Date(current.getFullYear(), current.getMonth(), 1));
 
     setSelectedCalendarDay(current);
+  };
+
+  const handleCalendarTouchStart = (
+    event: React.TouchEvent<HTMLDivElement>,
+  ) => {
+    touchStartX.current = event.touches[0].clientX;
+  };
+
+  const handleCalendarTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX.current === null) return;
+
+    const touchEndX = event.changedTouches[0].clientX;
+    const distance = touchStartX.current - touchEndX;
+
+    touchStartX.current = null;
+
+    // Evita cambiar de mes con movimientos pequeños.
+    if (Math.abs(distance) < 50) return;
+
+    if (distance > 0) {
+      goToNextMonth();
+    } else {
+      goToPreviousMonth();
+    }
   };
 
   return (
@@ -1272,7 +1298,11 @@ export default function GigsPage() {
           </div>
 
           {/* Calendario */}
-          <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40">
+          <div
+            onTouchStart={handleCalendarTouchStart}
+            onTouchEnd={handleCalendarTouchEnd}
+            className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 select-none touch-pan-y"
+          >
             {/* Nombres de días */}
             <div className="grid grid-cols-7 border-b border-zinc-800 bg-zinc-900">
               {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(
