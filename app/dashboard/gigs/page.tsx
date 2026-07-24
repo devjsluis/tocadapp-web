@@ -249,8 +249,8 @@ export default function GigsPage() {
   const [editingGig, setEditingGig] = useState<Gig | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [gigFilter, setGigFilter] = useState<GigFilter>("upcoming");
+  const [viewMode, setViewMode] = useState<ViewMode>("calendar");
+  const [gigFilter, setGigFilter] = useState<GigFilter>("all");
   const [formData, setFormData] = useState<FormData>(emptyForm);
   const [collectedGig, setCollectedGig] = useState<Gig | null>(null);
   const [collectedAmount, setCollectedAmount] = useState("");
