@@ -266,6 +266,33 @@ export default function GigsPage() {
 
   const touchStartX = useRef<number | null>(null);
 
+  const [slideDirection, setSlideDirection] = useState<
+    "idle" | "next" | "previous"
+  >("idle");
+
+  const [isSlideMoving, setIsSlideMoving] = useState(false);
+
+  const [displayedDate, setDisplayedDate] = useState(calendarDate);
+
+  const nextCalendarDate = new Date(
+    displayedDate.getFullYear(),
+    displayedDate.getMonth() + 1,
+    1,
+  );
+
+  const previousCalendarDate = new Date(
+    displayedDate.getFullYear(),
+    displayedDate.getMonth() - 1,
+    1,
+  );
+
+  const currentCalendarDays = getCalendarDays(displayedDate);
+
+  const incomingCalendarDays =
+    slideDirection === "next"
+      ? getCalendarDays(nextCalendarDate)
+      : getCalendarDays(previousCalendarDate);
+
   const fetchGigs = async () => {
     try {
       const { data } = await api.get("/gigs");
@@ -448,8 +475,6 @@ export default function GigsPage() {
 
   const monthGroups = groupByMonth(filteredMonthGigs);
 
-  const calendarDays = getCalendarDays(calendarDate);
-
   const filteredCalendarGigs = gigs.filter((gig) => {
     const gigDate = getGigDate(gig);
 
@@ -505,23 +530,50 @@ export default function GigsPage() {
     );
   };
 
+  const changeMonthWithAnimation = (direction: "previous" | "next") => {
+    if (slideDirection !== "idle") return;
+
+    setSlideDirection(direction);
+    setIsSlideMoving(false);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsSlideMoving(true);
+      });
+    });
+
+    window.setTimeout(() => {
+      const amount = direction === "next" ? 1 : -1;
+
+      setDisplayedDate((current) => {
+        return new Date(current.getFullYear(), current.getMonth() + amount, 1);
+      });
+
+      setCalendarDate((current) => {
+        return new Date(current.getFullYear(), current.getMonth() + amount, 1);
+      });
+
+      setSlideDirection("idle");
+      setIsSlideMoving(false);
+    }, 350);
+  };
+
   const goToPreviousMonth = () => {
-    setCalendarDate(
-      (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1),
-    );
+    changeMonthWithAnimation("previous");
   };
 
   const goToNextMonth = () => {
-    setCalendarDate(
-      (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1),
-    );
+    changeMonthWithAnimation("next");
   };
 
   const goToCurrentMonth = () => {
+    if (slideDirection !== "idle") return;
+
     const current = new Date();
+    const currentMonth = new Date(current.getFullYear(), current.getMonth(), 1);
 
-    setCalendarDate(new Date(current.getFullYear(), current.getMonth(), 1));
-
+    setCalendarDate(currentMonth);
+    setDisplayedDate(currentMonth);
     setSelectedCalendarDay(current);
   };
 
@@ -547,6 +599,90 @@ export default function GigsPage() {
     } else {
       goToPreviousMonth();
     }
+  };
+
+  const renderCalendarDays = (days: Date[], monthDate: Date) => {
+    return days.map((day) => {
+      const dayGigs = getGigsForCalendarDay(day);
+      const hasGigs = dayGigs.length > 0;
+      const isCurrentMonth = day.getMonth() === monthDate.getMonth();
+      const isToday = isSameDay(day, new Date());
+      const isSelected =
+        selectedCalendarDay != null && isSameDay(day, selectedCalendarDay);
+
+      return (
+        <button
+          key={day.toISOString()}
+          type="button"
+          onClick={() => setSelectedCalendarDay(day)}
+          className={`relative min-h-20 sm:min-h-32 border-b border-r border-zinc-800/70 p-1.5 sm:p-2 transition-colors cursor-pointer overflow-hidden ${
+            isCurrentMonth
+              ? "bg-zinc-950/20 hover:bg-zinc-800/50"
+              : "bg-zinc-950/60"
+          } ${
+            isSelected
+              ? "ring-1 ring-inset ring-purple-500 bg-purple-500/5"
+              : ""
+          }`}
+        >
+          <div className="flex justify-center mb-1.5">
+            <span
+              className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-xs sm:text-sm font-bold transition-colors ${
+                isToday
+                  ? "bg-emerald-500 text-white ring-2 ring-emerald-400/30"
+                  : hasGigs
+                    ? "bg-purple-600 text-white"
+                    : isCurrentMonth
+                      ? "text-zinc-300"
+                      : "text-zinc-700"
+              }`}
+            >
+              {day.getDate()}
+            </span>
+          </div>
+
+          <div className="hidden sm:block space-y-1">
+            {dayGigs.slice(0, 3).map((gig) => {
+              const gigDate = getGigDate(gig);
+              const isPast = gigDate < now;
+              const hasConflict = conflictingIds.has(gig.id);
+
+              let gigClass =
+                "bg-purple-500/15 text-purple-300 border-purple-500/20";
+
+              if (gig.my_attending === false) {
+                gigClass =
+                  "bg-red-500/10 text-red-400 border-red-500/20 opacity-60";
+              } else if (hasConflict) {
+                gigClass =
+                  "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+              } else if (isPast) {
+                gigClass = "bg-zinc-800 text-zinc-500 border-zinc-700";
+              }
+
+              return (
+                <div
+                  key={gig.id}
+                  className={`truncate rounded-md border px-1.5 py-1 text-[10px] ${gigClass}`}
+                  title={`${gig.title} · ${String(gig.time).slice(0, 5)}`}
+                >
+                  <span className="font-bold">
+                    {String(gig.time).slice(0, 5)}
+                  </span>{" "}
+                  {gig.title}
+                </div>
+              );
+            })}
+
+            {dayGigs.length > 3 && (
+              <div className="px-1 text-[10px] font-semibold text-zinc-500">
+                +{dayGigs.length - 3} más
+              </div>
+            )}
+          </div>
+        </button>
+      );
+    });
   };
 
   return (
@@ -1318,92 +1454,46 @@ export default function GigsPage() {
             </div>
 
             {/* Días */}
-            <div className="grid grid-cols-7">
-              {calendarDays.map((day) => {
-                const dayGigs = getGigsForCalendarDay(day);
-                const hasGigs = dayGigs.length > 0;
-                const isCurrentMonth =
-                  day.getMonth() === calendarDate.getMonth();
-                const isToday = isSameDay(day, new Date());
-                const isSelected =
-                  selectedCalendarDay != null &&
-                  isSameDay(day, selectedCalendarDay);
-
-                return (
-                  <button
-                    key={day.toISOString()}
-                    type="button"
-                    onClick={() => setSelectedCalendarDay(day)}
-                    className={`relative min-h-20 sm:min-h-32 border-b border-r border-zinc-800/70 p-1.5 sm:p-2 transition-colors cursor-pointer overflow-hidden ${
-                      isCurrentMonth
-                        ? "bg-zinc-950/20 hover:bg-zinc-800/50"
-                        : "bg-zinc-950/60"
-                    } ${
-                      isSelected
-                        ? "ring-1 ring-inset ring-purple-500 bg-purple-500/5"
-                        : ""
-                    }`}
-                  >
-                    <div className="flex justify-center mb-1.5">
-                      <span
-                        className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-xs sm:text-sm font-bold transition-colors ${
-                          isToday
-                            ? "bg-emerald-500 text-white ring-2 ring-emerald-400/30"
-                            : hasGigs
-                              ? "bg-purple-600 text-white"
-                              : isCurrentMonth
-                                ? "text-zinc-300"
-                                : "text-zinc-700"
-                        }`}
-                      >
-                        {day.getDate()}
-                      </span>
-                    </div>
-
-                    {/* En escritorio mostramos eventos dentro del día */}
-                    <div className="hidden sm:block space-y-1">
-                      {dayGigs.slice(0, 3).map((gig) => {
-                        const gigDate = getGigDate(gig);
-                        const isPast = gigDate < now;
-                        const hasConflict = conflictingIds.has(gig.id);
-
-                        let gigClass =
-                          "bg-purple-500/15 text-purple-300 border-purple-500/20";
-
-                        if (gig.my_attending === false) {
-                          gigClass =
-                            "bg-red-500/10 text-red-400 border-red-500/20 opacity-60";
-                        } else if (hasConflict) {
-                          gigClass =
-                            "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
-                        } else if (isPast) {
-                          gigClass =
-                            "bg-zinc-800 text-zinc-500 border-zinc-700";
-                        }
-
-                        return (
-                          <div
-                            key={gig.id}
-                            className={`truncate rounded-md border px-1.5 py-1 text-[10px] ${gigClass}`}
-                            title={`${gig.title} · ${String(gig.time).slice(0, 5)}`}
-                          >
-                            <span className="font-bold">
-                              {String(gig.time).slice(0, 5)}
-                            </span>{" "}
-                            {gig.title}
-                          </div>
-                        );
-                      })}
-
-                      {dayGigs.length > 3 && (
-                        <div className="px-1 text-[10px] font-semibold text-zinc-500">
-                          +{dayGigs.length - 3} más
-                        </div>
+            <div className="relative overflow-hidden">
+              {slideDirection === "idle" ? (
+                <div className="grid grid-cols-7">
+                  {renderCalendarDays(currentCalendarDays, displayedDate)}
+                </div>
+              ) : (
+                <div
+                  className={`flex w-[200%] transform-gpu transition-transform duration-[350ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    slideDirection === "next"
+                      ? isSlideMoving
+                        ? "-translate-x-1/2"
+                        : "translate-x-0"
+                      : isSlideMoving
+                        ? "translate-x-0"
+                        : "-translate-x-1/2"
+                  }`}
+                >
+                  {slideDirection === "previous" && (
+                    <div className="grid w-1/2 shrink-0 grid-cols-7">
+                      {renderCalendarDays(
+                        incomingCalendarDays,
+                        previousCalendarDate,
                       )}
                     </div>
-                  </button>
-                );
-              })}
+                  )}
+
+                  <div className="grid w-1/2 shrink-0 grid-cols-7">
+                    {renderCalendarDays(currentCalendarDays, displayedDate)}
+                  </div>
+
+                  {slideDirection === "next" && (
+                    <div className="grid w-1/2 shrink-0 grid-cols-7">
+                      {renderCalendarDays(
+                        incomingCalendarDays,
+                        nextCalendarDate,
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
