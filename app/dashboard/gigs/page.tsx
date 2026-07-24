@@ -18,6 +18,9 @@ import {
   Lock,
   CheckCircle2,
   XCircle,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -56,7 +59,7 @@ type FormData = {
   band_id: string;
 };
 
-type ViewMode = "grid" | "month";
+type ViewMode = "grid" | "month" | "calendar";
 
 type GigFilter = "upcoming" | "past" | "all";
 
@@ -73,6 +76,44 @@ const emptyForm: FormData = {
 function parseLocalDate(dateStr: string): Date {
   const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
   return new Date(year, month - 1, day);
+}
+
+function startOfDay(date: Date): Date {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function getCalendarDays(calendarDate: Date): Date[] {
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+
+  // JavaScript usa domingo = 0.
+  // Lo convertimos para que lunes = 0 y domingo = 6.
+  const daysBeforeMonth = (firstDayOfMonth.getDay() + 6) % 7;
+  const daysAfterMonth = 6 - ((lastDayOfMonth.getDay() + 6) % 7);
+
+  const calendarStart = new Date(year, month, 1 - daysBeforeMonth);
+  const totalDays = daysBeforeMonth + lastDayOfMonth.getDate() + daysAfterMonth;
+
+  return Array.from({ length: totalDays }, (_, index) => {
+    return new Date(
+      calendarStart.getFullYear(),
+      calendarStart.getMonth(),
+      calendarStart.getDate() + index,
+    );
+  });
 }
 
 function toDateInput(dateStr: string): string {
@@ -213,6 +254,15 @@ export default function GigsPage() {
   const [formData, setFormData] = useState<FormData>(emptyForm);
   const [collectedGig, setCollectedGig] = useState<Gig | null>(null);
   const [collectedAmount, setCollectedAmount] = useState("");
+  const [calendarDate, setCalendarDate] = useState(() => {
+    const current = new Date();
+
+    return new Date(current.getFullYear(), current.getMonth(), 1);
+  });
+
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<Date | null>(
+    new Date(),
+  );
 
   const fetchGigs = async () => {
     try {
@@ -396,6 +446,32 @@ export default function GigsPage() {
 
   const monthGroups = groupByMonth(filteredMonthGigs);
 
+  const calendarDays = getCalendarDays(calendarDate);
+
+  const filteredCalendarGigs = gigs.filter((gig) => {
+    const gigDate = getGigDate(gig);
+
+    if (gigFilter === "upcoming") {
+      return gigDate >= now;
+    }
+
+    if (gigFilter === "past") {
+      return gigDate < now;
+    }
+
+    return true;
+  });
+
+  const getGigsForCalendarDay = (day: Date): Gig[] => {
+    return filteredCalendarGigs
+      .filter((gig) => isSameDay(parseLocalDate(gig.date), day))
+      .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  };
+
+  const selectedDayGigs = selectedCalendarDay
+    ? getGigsForCalendarDay(selectedCalendarDay)
+    : [];
+
   const ActionButtons = ({ gig }: { gig: Gig }) => {
     if (!gig.is_owner) {
       return (
@@ -425,6 +501,26 @@ export default function GigsPage() {
         </button>
       </div>
     );
+  };
+
+  const goToPreviousMonth = () => {
+    setCalendarDate(
+      (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1),
+    );
+  };
+
+  const goToNextMonth = () => {
+    setCalendarDate(
+      (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1),
+    );
+  };
+
+  const goToCurrentMonth = () => {
+    const current = new Date();
+
+    setCalendarDate(new Date(current.getFullYear(), current.getMonth(), 1));
+
+    setSelectedCalendarDay(current);
   };
 
   return (
@@ -495,6 +591,18 @@ export default function GigsPage() {
               }`}
             >
               <List size={16} className="mx-auto" />
+            </button>
+
+            <button
+              onClick={() => setViewMode("calendar")}
+              title="Vista calendario"
+              className={`flex-1 sm:flex-none p-2 rounded-lg transition-colors cursor-pointer ${
+                viewMode === "calendar"
+                  ? "bg-zinc-700 text-white"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <CalendarDays size={16} className="mx-auto" />
             </button>
           </div>
         </div>
@@ -1111,9 +1219,305 @@ export default function GigsPage() {
         </div>
       )}
 
+      {/* ── Vista Calendario ── */}
+      {viewMode === "calendar" && !loading && (
+        <div className="space-y-4">
+          {/* Navegación */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold capitalize text-white">
+                {calendarDate.toLocaleDateString("es-MX", {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </h2>
+
+              <p className="text-sm text-zinc-500">
+                Selecciona un día para ver sus tocadas
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={goToCurrentMonth}
+                className="border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 cursor-pointer"
+              >
+                Hoy
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={goToPreviousMonth}
+                className="border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 cursor-pointer"
+                title="Mes anterior"
+              >
+                <ChevronLeft size={18} />
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={goToNextMonth}
+                className="border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 cursor-pointer"
+                title="Mes siguiente"
+              >
+                <ChevronRight size={18} />
+              </Button>
+            </div>
+          </div>
+
+          {/* Calendario */}
+          <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40">
+            {/* Nombres de días */}
+            <div className="grid grid-cols-7 border-b border-zinc-800 bg-zinc-900">
+              {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(
+                (dayName) => (
+                  <div
+                    key={dayName}
+                    className="py-3 text-center text-[10px] sm:text-xs font-bold uppercase tracking-wider text-zinc-500"
+                  >
+                    {dayName}
+                  </div>
+                ),
+              )}
+            </div>
+
+            {/* Días */}
+            <div className="grid grid-cols-7">
+              {calendarDays.map((day) => {
+                const dayGigs = getGigsForCalendarDay(day);
+                const hasGigs = dayGigs.length > 0;
+                const isCurrentMonth =
+                  day.getMonth() === calendarDate.getMonth();
+                const isToday = isSameDay(day, new Date());
+                const isSelected =
+                  selectedCalendarDay != null &&
+                  isSameDay(day, selectedCalendarDay);
+
+                return (
+                  <button
+                    key={day.toISOString()}
+                    type="button"
+                    onClick={() => setSelectedCalendarDay(day)}
+                    className={`relative min-h-20 sm:min-h-32 border-b border-r border-zinc-800/70 p-1.5 sm:p-2 transition-colors cursor-pointer overflow-hidden ${
+                      isCurrentMonth
+                        ? "bg-zinc-950/20 hover:bg-zinc-800/50"
+                        : "bg-zinc-950/60"
+                    } ${
+                      isSelected
+                        ? "ring-1 ring-inset ring-purple-500 bg-purple-500/5"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex justify-center mb-1.5">
+                      <span
+                        className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-xs sm:text-sm font-bold transition-colors ${
+                          isToday
+                            ? "bg-emerald-500 text-white ring-2 ring-emerald-400/30"
+                            : hasGigs
+                              ? "bg-purple-600 text-white"
+                              : isCurrentMonth
+                                ? "text-zinc-300"
+                                : "text-zinc-700"
+                        }`}
+                      >
+                        {day.getDate()}
+                      </span>
+                    </div>
+
+                    {/* En escritorio mostramos eventos dentro del día */}
+                    <div className="hidden sm:block space-y-1">
+                      {dayGigs.slice(0, 3).map((gig) => {
+                        const gigDate = getGigDate(gig);
+                        const isPast = gigDate < now;
+                        const hasConflict = conflictingIds.has(gig.id);
+
+                        let gigClass =
+                          "bg-purple-500/15 text-purple-300 border-purple-500/20";
+
+                        if (gig.my_attending === false) {
+                          gigClass =
+                            "bg-red-500/10 text-red-400 border-red-500/20 opacity-60";
+                        } else if (hasConflict) {
+                          gigClass =
+                            "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+                        } else if (isPast) {
+                          gigClass =
+                            "bg-zinc-800 text-zinc-500 border-zinc-700";
+                        }
+
+                        return (
+                          <div
+                            key={gig.id}
+                            className={`truncate rounded-md border px-1.5 py-1 text-[10px] ${gigClass}`}
+                            title={`${gig.title} · ${String(gig.time).slice(0, 5)}`}
+                          >
+                            <span className="font-bold">
+                              {String(gig.time).slice(0, 5)}
+                            </span>{" "}
+                            {gig.title}
+                          </div>
+                        );
+                      })}
+
+                      {dayGigs.length > 3 && (
+                        <div className="px-1 text-[10px] font-semibold text-zinc-500">
+                          +{dayGigs.length - 3} más
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Detalle del día seleccionado */}
+          {selectedCalendarDay && (
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+              <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-zinc-800">
+                <div>
+                  <p className="font-bold capitalize text-white">
+                    {selectedCalendarDay.toLocaleDateString("es-MX", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </p>
+
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {selectedDayGigs.length}{" "}
+                    {selectedDayGigs.length === 1 ? "tocada" : "tocadas"}
+                  </p>
+                </div>
+              </div>
+
+              {selectedDayGigs.length === 0 ? (
+                <div className="px-5 py-8 text-center">
+                  <CalendarDays
+                    size={28}
+                    className="mx-auto mb-2 text-zinc-700"
+                  />
+                  <p className="text-sm text-zinc-500">
+                    No hay tocadas para este día.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  {selectedDayGigs.map((gig, index) => {
+                    const gigDate = getGigDate(gig);
+                    const isPast = gigDate < now;
+                    const hasConflict = conflictingIds.has(gig.id);
+
+                    return (
+                      <div
+                        key={gig.id}
+                        className={`flex items-start sm:items-center gap-3 px-4 sm:px-5 py-4 ${
+                          index !== selectedDayGigs.length - 1
+                            ? "border-b border-zinc-800"
+                            : ""
+                        } ${gig.my_attending === false ? "opacity-50" : ""}`}
+                      >
+                        <div
+                          className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 ${
+                            hasConflict
+                              ? "bg-yellow-500/10 text-yellow-400"
+                              : isPast
+                                ? "bg-zinc-800 text-zinc-500"
+                                : "bg-purple-500/15 text-purple-400"
+                          }`}
+                        >
+                          <Clock size={14} />
+                          <span className="text-[10px] font-bold mt-0.5">
+                            {String(gig.time).slice(0, 5)}
+                          </span>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p
+                              className={`font-semibold truncate ${
+                                isPast ? "text-zinc-500" : "text-white"
+                              }`}
+                            >
+                              {gig.title}
+                            </p>
+
+                            {gig.band_name && (
+                              <BandBadge name={gig.band_name} />
+                            )}
+
+                            {hasConflict && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-yellow-400">
+                                <AlertTriangle size={10} />
+                                Conflicto
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1 text-xs text-zinc-600">
+                            <span className="flex items-center gap-1">
+                              <MapPin size={11} />
+                              {gig.place}
+                            </span>
+
+                            <span>
+                              {gig.hours}{" "}
+                              {Number(gig.hours) === 1 ? "hora" : "horas"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <ActionButtons gig={gig} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {deleting && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-zinc-800 border border-zinc-700 px-4 py-2 rounded-full text-sm text-zinc-300 shadow-xl">
           Eliminando...
+        </div>
+      )}
+
+      {viewMode === "calendar" && loading && (
+        <div className="animate-pulse">
+          <div className="flex items-center justify-between mb-4">
+            <div className="space-y-2">
+              <div className="h-6 w-36 bg-zinc-800 rounded" />
+              <div className="h-3 w-52 bg-zinc-800 rounded" />
+            </div>
+
+            <div className="flex gap-2">
+              <div className="h-9 w-16 bg-zinc-800 rounded-lg" />
+              <div className="h-9 w-9 bg-zinc-800 rounded-lg" />
+              <div className="h-9 w-9 bg-zinc-800 rounded-lg" />
+            </div>
+          </div>
+
+          <div className="rounded-2xl overflow-hidden border border-zinc-800">
+            <div className="grid grid-cols-7">
+              {Array.from({ length: 42 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="min-h-20 sm:min-h-32 border-b border-r border-zinc-800 p-2"
+                >
+                  <div className="w-6 h-6 rounded-full bg-zinc-800" />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
