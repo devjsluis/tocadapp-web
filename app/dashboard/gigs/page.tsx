@@ -24,7 +24,6 @@ import {
   List,
   Music,
   Plus,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteModal } from "@/features/gigs/components/ConfirmDeleteModal";
@@ -33,6 +32,7 @@ import { CalendarView } from "@/features/gigs/components/CalendarView";
 import { MonthView } from "@/features/gigs/components/MonthView";
 import { GridView } from "@/features/gigs/components/GridView";
 import { CollectedAmountModal } from "@/features/gigs/components/CollectedAmountModal";
+import { GigFormModal } from "@/features/gigs/components/GigFormModal";
 
 const emptyForm: GigFormData = {
   title: "",
@@ -151,6 +151,16 @@ export default function GigsPage() {
     setFormData(emptyForm);
   };
 
+  const updateFormField = <K extends keyof GigFormData>(
+    field: K,
+    value: GigFormData[K],
+  ) => {
+    setFormData((previousForm) => ({
+      ...previousForm,
+      [field]: value,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -237,6 +247,10 @@ export default function GigsPage() {
   today.setHours(0, 0, 0, 0);
 
   const monthGroups = groupGigsByMonth(filteredMonthGigs);
+
+  const availablePlaces = [
+    ...new Set(gigs.map((gig) => gig.place.trim()).filter(Boolean)),
+  ];
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -325,113 +339,15 @@ export default function GigsPage() {
 
       {/* Modal crear / editar */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-full max-w-md relative">
-            <button
-              onClick={closeForm}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-            <h2 className="text-xl font-bold mb-6">
-              {editingGig ? "Editar Tocada" : "Registrar Evento"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <input
-                type="text"
-                placeholder="Nombre del evento (Ej: Boda Familia Perez)"
-                value={formData.title}
-                className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white placeholder:text-zinc-500"
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                required
-              />
-              <input
-                type="text"
-                placeholder="Lugar / Salón"
-                value={formData.place}
-                list="places-list"
-                className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white placeholder:text-zinc-500"
-                onChange={(e) =>
-                  setFormData({ ...formData, place: e.target.value })
-                }
-                required
-              />
-              <datalist id="places-list">
-                {[
-                  ...new Set(gigs.map((g) => g.place.trim()).filter(Boolean)),
-                ].map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
-
-              {/* Selector de banda */}
-              {bands.length > 0 && (
-                <select
-                  value={formData.band_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, band_id: e.target.value })
-                  }
-                  className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white"
-                >
-                  <option value="">Sin banda (tocada personal)</option>
-                  {bands.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="date"
-                  value={formData.date}
-                  className="bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white"
-                  onChange={(e) =>
-                    setFormData({ ...formData, date: e.target.value })
-                  }
-                  required
-                />
-                <input
-                  type="time"
-                  value={formData.time}
-                  className="bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white"
-                  onChange={(e) =>
-                    setFormData({ ...formData, time: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <input
-                type="number"
-                placeholder="Horas"
-                value={formData.hours}
-                className="bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white placeholder:text-zinc-500"
-                onChange={(e) =>
-                  setFormData({ ...formData, hours: e.target.value })
-                }
-                required
-              />
-              <textarea
-                placeholder="Notas (opcional)"
-                value={formData.notes}
-                rows={2}
-                className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white placeholder:text-zinc-500 resize-none"
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
-              />
-              <Button
-                type="submit"
-                className="w-full bg-purple-600 hover:bg-purple-700 font-bold py-6 cursor-pointer"
-              >
-                {editingGig ? "Guardar Cambios" : "Guardar Tocada"}
-              </Button>
-            </form>
-          </div>
-        </div>
+        <GigFormModal
+          formData={formData}
+          bands={bands}
+          places={availablePlaces}
+          isEditing={editingGig !== null}
+          onFieldChange={updateFormField}
+          onSubmit={handleSubmit}
+          onClose={closeForm}
+        />
       )}
 
       {/* Modal: registrar cobro en gig personal */}
