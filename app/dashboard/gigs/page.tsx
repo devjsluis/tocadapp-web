@@ -3,18 +3,10 @@
 import { useEffect, useState } from "react";
 import { bandsService } from "@/features/bands/services/bands.service";
 import type { Band } from "@/features/bands/types/band";
-import type {
-  Gig,
-  GigFilter,
-  GigFormData,
-  SaveGigPayload,
-  ViewMode,
-} from "@/features/gigs/types/gig";
+import type { Gig, GigFilter, ViewMode } from "@/features/gigs/types/gig";
 import {
   getConflictingGigIds,
   groupGigsByMonth,
-  toDateInput,
-  toTimeInput,
 } from "@/features/gigs/utils/gig.utils";
 import {
   AlertTriangle,
@@ -33,16 +25,7 @@ import { GridView } from "@/features/gigs/components/GridView";
 import { CollectedAmountModal } from "@/features/gigs/components/CollectedAmountModal";
 import { GigFormModal } from "@/features/gigs/components/GigFormModal";
 import { useGigs } from "@/features/gigs/hooks/useGigs";
-
-const emptyForm: GigFormData = {
-  title: "",
-  place: "",
-  date: "",
-  time: "",
-  hours: "",
-  notes: "",
-  band_id: "",
-};
+import { useGigForm } from "@/features/gigs/hooks/useGigForm";
 
 export default function GigsPage() {
   const {
@@ -55,13 +38,24 @@ export default function GigsPage() {
     setCollectedAmount: updateCollectedAmount,
   } = useGigs();
 
+  const {
+    showForm,
+    formData,
+    isEditing,
+    saving,
+    openCreate,
+    openEdit,
+    closeForm,
+    updateField,
+    submit,
+  } = useGigForm({
+    onSave: saveGig,
+  });
+
   const [bands, setBands] = useState<Band[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [editingGig, setEditingGig] = useState<Gig | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [gigFilter, setGigFilter] = useState<GigFilter>("all");
-  const [formData, setFormData] = useState<GigFormData>(emptyForm);
   const [collectedGig, setCollectedGig] = useState<Gig | null>(null);
   const [collectedAmount, setCollectedAmount] = useState("");
 
@@ -128,58 +122,6 @@ export default function GigsPage() {
 
     return true;
   });
-
-  const openCreate = () => {
-    setEditingGig(null);
-    setFormData(emptyForm);
-    setShowForm(true);
-  };
-
-  const openEdit = (gig: Gig) => {
-    setEditingGig(gig);
-    setFormData({
-      title: gig.title,
-      place: gig.place,
-      date: toDateInput(gig.date),
-      time: toTimeInput(String(gig.time)),
-      hours: String(gig.hours),
-      notes: gig.notes ?? "",
-      band_id: gig.band_id ?? "",
-    });
-    setShowForm(true);
-  };
-
-  const closeForm = () => {
-    setShowForm(false);
-    setEditingGig(null);
-    setFormData(emptyForm);
-  };
-
-  const updateFormField = <K extends keyof GigFormData>(
-    field: K,
-    value: GigFormData[K],
-  ) => {
-    setFormData((previousForm) => ({
-      ...previousForm,
-      [field]: value,
-    }));
-  };
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    const payload: SaveGigPayload = {
-      ...formData,
-      amount: null,
-      band_id: formData.band_id || null,
-    };
-
-    const saved = await saveGig(editingGig, payload);
-
-    if (saved) {
-      closeForm();
-    }
-  };
 
   const confirmDelete = async () => {
     if (!confirmDeleteId) return;
@@ -307,9 +249,10 @@ export default function GigsPage() {
           formData={formData}
           bands={bands}
           places={availablePlaces}
-          isEditing={editingGig !== null}
-          onFieldChange={updateFormField}
-          onSubmit={handleSubmit}
+          isEditing={isEditing}
+          saving={saving}
+          onFieldChange={updateField}
+          onSubmit={submit}
           onClose={closeForm}
         />
       )}

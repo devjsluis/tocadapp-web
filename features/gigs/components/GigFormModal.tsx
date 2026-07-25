@@ -7,24 +7,26 @@ import { Button } from "@/components/ui/button";
 import type { Band } from "@/features/bands/types/band";
 import type { GigFormData } from "@/features/gigs/types/gig";
 
-interface GigFormModalProps {
+type GigFormModalProps = {
   formData: GigFormData;
   bands: Band[];
   places: string[];
   isEditing: boolean;
+  saving: boolean;
   onFieldChange: <K extends keyof GigFormData>(
     field: K,
     value: GigFormData[K],
   ) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   onClose: () => void;
-}
+};
 
 export function GigFormModal({
   formData,
   bands,
   places,
   isEditing,
+  saving,
   onFieldChange,
   onSubmit,
   onClose,
@@ -126,9 +128,14 @@ export function GigFormModal({
 
           <Button
             type="submit"
-            className="w-full bg-purple-600 hover:bg-purple-700 font-bold py-6 cursor-pointer"
+            disabled={saving}
+            className="disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isEditing ? "Guardar Cambios" : "Guardar Tocada"}
+            {saving
+              ? "Guardando..."
+              : isEditing
+                ? "Guardar Cambios"
+                : "Guardar Tocada"}
           </Button>
         </form>
       </div>
