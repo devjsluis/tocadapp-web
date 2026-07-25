@@ -12,6 +12,17 @@ import type {
   ViewMode,
 } from "@/features/gigs/types/gig";
 import {
+  formatMoney,
+  getCalendarDays,
+  getConflictingGigIds,
+  groupGigsByMonth,
+  isSameDay,
+  parseLocalDate,
+  timeToMinutes,
+  toDateInput,
+  toTimeInput,
+} from "@/features/gigs/utils/gig.utils";
+import {
   Plus,
   Calendar,
   MapPin,
@@ -42,100 +53,6 @@ const emptyForm: GigFormData = {
   notes: "",
   band_id: "",
 };
-
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
-function getCalendarDays(calendarDate: Date): Date[] {
-  const year = calendarDate.getFullYear();
-  const month = calendarDate.getMonth();
-
-  const firstDayOfMonth = new Date(year, month, 1);
-  const lastDayOfMonth = new Date(year, month + 1, 0);
-
-  // JavaScript usa domingo = 0.
-  // Lo convertimos para que lunes = 0 y domingo = 6.
-  const daysBeforeMonth = (firstDayOfMonth.getDay() + 6) % 7;
-  const daysAfterMonth = 6 - ((lastDayOfMonth.getDay() + 6) % 7);
-
-  const calendarStart = new Date(year, month, 1 - daysBeforeMonth);
-  const totalDays = daysBeforeMonth + lastDayOfMonth.getDate() + daysAfterMonth;
-
-  return Array.from({ length: totalDays }, (_, index) => {
-    return new Date(
-      calendarStart.getFullYear(),
-      calendarStart.getMonth(),
-      calendarStart.getDate() + index,
-    );
-  });
-}
-
-function toDateInput(dateStr: string): string {
-  return dateStr.split("T")[0];
-}
-
-function toTimeInput(timeStr: string): string {
-  return timeStr?.slice(0, 5) ?? "";
-}
-
-function fmtMoney(value: number | string): string {
-  return Number(value).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function groupByMonth(gigs: Gig[]): { label: string; gigs: Gig[] }[] {
-  const map = new Map<string, Gig[]>();
-  for (const gig of gigs) {
-    const d = parseLocalDate(gig.date);
-    const key = d.toLocaleDateString("es-MX", {
-      month: "long",
-      year: "numeric",
-    });
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(gig);
-  }
-  return Array.from(map.entries()).map(([label, gigs]) => ({ label, gigs }));
-}
-
-function timeToMinutes(timeStr: string): number {
-  const [h, m] = String(timeStr).slice(0, 5).split(":").map(Number);
-  return h * 60 + m;
-}
-
-function gigsConflict(a: Gig, b: Gig): boolean {
-  if (a.id === b.id) return false;
-  if (a.date.split("T")[0] !== b.date.split("T")[0]) return false;
-  const startA = timeToMinutes(String(a.time));
-  const endA = startA + Number(a.hours) * 60;
-  const startB = timeToMinutes(String(b.time));
-  const endB = startB + Number(b.hours) * 60;
-  return startA < endB && startB < endA;
-}
-
-function getConflictingIds(gigs: Gig[]): Set<string> {
-  const conflicting = new Set<string>();
-  for (let i = 0; i < gigs.length; i++) {
-    for (let j = i + 1; j < gigs.length; j++) {
-      if (gigsConflict(gigs[i], gigs[j])) {
-        conflicting.add(gigs[i].id);
-        conflicting.add(gigs[j].id);
-      }
-    }
-  }
-  return conflicting;
-}
 
 const GigSkeleton = () => (
   <div className="bg-zinc-900/50 border border-zinc-800 p-5 rounded-xl animate-pulse">
@@ -282,7 +199,7 @@ export default function GigsPage() {
     fetchBands();
   }, []);
 
-  const conflictingIds = getConflictingIds(gigs);
+  const conflictingIds = getConflictingGigIds(gigs);
 
   const now = new Date();
 
@@ -436,7 +353,7 @@ export default function GigsPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const monthGroups = groupByMonth(filteredMonthGigs);
+  const monthGroups = groupGigsByMonth(filteredMonthGigs);
 
   const filteredCalendarGigs = gigs.filter((gig) => {
     const gigDate = getGigDate(gig);
@@ -1049,7 +966,7 @@ export default function GigsPage() {
                               <div className="flex items-center justify-between">
                                 <span className="text-green-400 font-bold flex items-center gap-1 text-base">
                                   <CheckCircle2 size={14} />$
-                                  {fmtMoney(cobroNum)}
+                                  {formatMoney(cobroNum)}
                                 </span>
                                 <button
                                   onClick={() => {
@@ -1147,7 +1064,7 @@ export default function GigsPage() {
                     </span>
                     {monthCobrado > 0 && (
                       <span className="text-sm font-bold text-green-400">
-                        ${fmtMoney(monthCobrado)}
+                        ${formatMoney(monthCobrado)}
                       </span>
                     )}
                   </div>
@@ -1284,7 +1201,8 @@ export default function GigsPage() {
                               <span
                                 className={`text-sm font-bold shrink-0 flex items-center gap-1 ${isPast ? "text-green-500/70" : "text-green-400"}`}
                               >
-                                <CheckCircle2 size={12} />${fmtMoney(cobroNum)}
+                                <CheckCircle2 size={12} />$
+                                {formatMoney(cobroNum)}
                               </span>
                             );
                           }
