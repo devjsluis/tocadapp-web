@@ -20,7 +20,6 @@ import {
 import {
   AlertTriangle,
   CalendarDays,
-  CheckCircle2,
   LayoutGrid,
   List,
   Music,
@@ -33,6 +32,7 @@ import { GigSkeleton } from "@/features/gigs/components/GigSkeleton";
 import { CalendarView } from "@/features/gigs/components/CalendarView";
 import { MonthView } from "@/features/gigs/components/MonthView";
 import { GridView } from "@/features/gigs/components/GridView";
+import { CollectedAmountModal } from "@/features/gigs/components/CollectedAmountModal";
 
 const emptyForm: GigFormData = {
   title: "",
@@ -231,12 +231,6 @@ export default function GigsPage() {
   const openCollectedModal = (gig: Gig, amount = "") => {
     setCollectedGig(gig);
     setCollectedAmount(amount);
-  };
-
-  const handleSaveCollected = (e: React.FormEvent) => {
-    e.preventDefault();
-    const amount = collectedAmount === "" ? null : Number(collectedAmount);
-    saveCollected(amount);
   };
 
   const today = new Date();
@@ -442,60 +436,16 @@ export default function GigsPage() {
 
       {/* Modal: registrar cobro en gig personal */}
       {collectedGig && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-full max-w-sm relative">
-            <button
-              onClick={() => {
-                setCollectedGig(null);
-                setCollectedAmount("");
-              }}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-            <div className="flex items-center gap-2 mb-1">
-              <CheckCircle2 size={18} className="text-yellow-400" />
-              <h2 className="text-xl font-bold">Registrar cobro</h2>
-            </div>
-            <p className="text-zinc-500 text-sm mb-1">
-              <span className="text-white font-semibold">
-                {collectedGig.title}
-              </span>
-            </p>
-            <form onSubmit={handleSaveCollected} className="space-y-4 mt-4">
-              <input
-                type="number"
-                placeholder="¿Cuánto cobraste? $"
-                value={collectedAmount}
-                onChange={(e) => setCollectedAmount(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-yellow-500 text-white placeholder:text-zinc-500 text-xl font-bold"
-                autoFocus
-                min="0"
-                step="0.01"
-              />
-              <div className="flex gap-2">
-                {(collectedGig.is_owner
-                  ? collectedGig.collected_amount != null
-                  : collectedGig.my_collected != null) && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => saveCollected(null)}
-                    className="flex-1 border border-zinc-700 text-zinc-500 hover:text-red-400 cursor-pointer py-6"
-                  >
-                    Borrar cobro
-                  </Button>
-                )}
-                <Button
-                  type="submit"
-                  className="flex-1 bg-yellow-600 hover:bg-yellow-700 font-bold py-6 cursor-pointer"
-                >
-                  Guardar
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CollectedAmountModal
+          gig={collectedGig}
+          amount={collectedAmount}
+          onAmountChange={setCollectedAmount}
+          onSave={saveCollected}
+          onClose={() => {
+            setCollectedGig(null);
+            setCollectedAmount("");
+          }}
+        />
       )}
 
       {confirmDeleteId && (
