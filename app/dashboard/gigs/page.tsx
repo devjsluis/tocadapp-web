@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { gigsService } from "@/features/gigs/services/gigs.service";
 import { bandsService } from "@/features/bands/services/bands.service";
 import type { Band } from "@/features/bands/types/band";
 import type {
@@ -33,6 +32,7 @@ import { MonthView } from "@/features/gigs/components/MonthView";
 import { GridView } from "@/features/gigs/components/GridView";
 import { CollectedAmountModal } from "@/features/gigs/components/CollectedAmountModal";
 import { GigFormModal } from "@/features/gigs/components/GigFormModal";
+import { useGigs } from "@/features/gigs/hooks/useGigs";
 
 const emptyForm: GigFormData = {
   title: "",
@@ -45,42 +45,46 @@ const emptyForm: GigFormData = {
 };
 
 export default function GigsPage() {
-  const [gigs, setGigs] = useState<Gig[]>([]);
+  const {
+    gigs,
+    loading,
+    deleting,
+    saveGig,
+    deleteGig,
+    setAttendance,
+    setCollectedAmount: updateCollectedAmount,
+  } = useGigs();
+
   const [bands, setBands] = useState<Band[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingGig, setEditingGig] = useState<Gig | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [gigFilter, setGigFilter] = useState<GigFilter>("all");
   const [formData, setFormData] = useState<GigFormData>(emptyForm);
   const [collectedGig, setCollectedGig] = useState<Gig | null>(null);
   const [collectedAmount, setCollectedAmount] = useState("");
 
-  const fetchGigs = async () => {
-    try {
-      const gigsData = await gigsService.getAll();
-      setGigs(gigsData);
-    } catch (error) {
-      console.error("Error al obtener tocadas", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchBands = async () => {
-    try {
-      const availableBands = await bandsService.getAvailableForGigCreation();
-      setBands(availableBands);
-    } catch (error) {
-      console.error("Error al obtener bandas", error);
-    }
-  };
-
   useEffect(() => {
-    fetchGigs();
-    fetchBands();
+    let cancelled = false;
+
+    const loadBands = async () => {
+      try {
+        const availableBands = await bandsService.getAvailableForGigCreation();
+
+        if (!cancelled) {
+          setBands(availableBands);
+        }
+      } catch (error) {
+        console.error("Error al obtener bandas", error);
+      }
+    };
+
+    void loadBands();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const conflictingIds = getConflictingGigIds(gigs);
@@ -161,80 +165,40 @@ export default function GigsPage() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const payload: SaveGigPayload = {
-        ...formData,
-        amount: null,
-        band_id: formData.band_id || null,
-      };
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
 
-      if (editingGig) {
-        await gigsService.update(editingGig.id, payload);
-      } else {
-        await gigsService.create(payload);
-      }
+    const payload: SaveGigPayload = {
+      ...formData,
+      amount: null,
+      band_id: formData.band_id || null,
+    };
 
+    const saved = await saveGig(editingGig, payload);
+
+    if (saved) {
       closeForm();
-      await fetchGigs();
-    } catch (error) {
-      console.error("Error al guardar la tocada:", error);
     }
   };
 
   const confirmDelete = async () => {
     if (!confirmDeleteId) return;
-    setDeleting(true);
-    try {
-      await gigsService.delete(confirmDeleteId);
-      setGigs((prev) => prev.filter((g) => g.id !== confirmDeleteId));
-    } catch (error) {
-      console.error("Error al eliminar:", error);
-    } finally {
-      setDeleting(false);
-      setConfirmDeleteId(null);
-    }
-  };
 
-  const handleSetAttending = async (
-    gigId: string,
-    attending: boolean | null,
-  ) => {
-    try {
-      await gigsService.setAttendance(gigId, attending);
-      setGigs((prev) =>
-        prev.map((g) =>
-          g.id === gigId ? { ...g, my_attending: attending } : g,
-        ),
-      );
-    } catch (error) {
-      console.error("Error al guardar asistencia:", error);
+    const deleted = await deleteGig(confirmDeleteId);
+
+    if (deleted) {
+      setConfirmDeleteId(null);
     }
   };
 
   const saveCollected = async (amount: number | null) => {
     if (!collectedGig) return;
-    try {
-      if (collectedGig.is_owner) {
-        await gigsService.setOwnerCollectedAmount(collectedGig.id, amount);
-        setGigs((prev) =>
-          prev.map((g) =>
-            g.id === collectedGig.id ? { ...g, collected_amount: amount } : g,
-          ),
-        );
-      } else {
-        await gigsService.setMemberCollectedAmount(collectedGig.id, amount);
-        setGigs((prev) =>
-          prev.map((g) =>
-            g.id === collectedGig.id ? { ...g, my_collected: amount } : g,
-          ),
-        );
-      }
+
+    const saved = await updateCollectedAmount(collectedGig, amount);
+
+    if (saved) {
       setCollectedGig(null);
       setCollectedAmount("");
-    } catch (error) {
-      console.error("Error al guardar cobro:", error);
     }
   };
 
@@ -423,7 +387,7 @@ export default function GigsPage() {
               today={today}
               onEditGig={openEdit}
               onDeleteGig={setConfirmDeleteId}
-              onSetAttending={handleSetAttending}
+              onSetAttending={setAttendance}
               onOpenCollected={openCollectedModal}
             />
           )}
@@ -438,7 +402,7 @@ export default function GigsPage() {
           today={today}
           onEditGig={openEdit}
           onDeleteGig={setConfirmDeleteId}
-          onSetAttending={handleSetAttending}
+          onSetAttending={setAttendance}
           onOpenCollected={openCollectedModal}
         />
       )}
