@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/Sidebar";
+import { SubscriptionGuard } from "@/features/subscriptions/components/SubscriptionGuard";
 
 export default function DashboardLayout({
   children,
@@ -6,11 +7,14 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-zinc-950 text-white">
-      <Sidebar />
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto mb-16 md:mb-0">
-        {children}
-      </main>
-    </div>
+    <SubscriptionGuard>
+      <div className="flex min-h-screen flex-col bg-zinc-950 text-white md:flex-row">
+        <Sidebar />
+
+        <main className="mb-16 flex-1 overflow-y-auto p-4 md:mb-0 md:p-8">
+          {children}
+        </main>
+      </div>
+    </SubscriptionGuard>
   );
 }

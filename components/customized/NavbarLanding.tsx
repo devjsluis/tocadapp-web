@@ -34,7 +34,7 @@ export const NavbarLanding = () => {
     <nav className="flex justify-between bg-black w-full fixed top-0 left-0 text-white font-bold px-5 py-4 border-b-6 border-b-purple-700 z-50 backdrop-blur-md">
       <section className="flex gap-x-4 items-center">
         <Link href="/" className="flex items-center gap-x-4">
-          <Image alt="Logotipo" src="/logotipo.png" width={40} height={40} />
+          <Image alt="Logotipo" src="/favicon.ico" width={40} height={40} />
           <h1 className="text-2xl">Tocadapp</h1>
         </Link>
       </section>

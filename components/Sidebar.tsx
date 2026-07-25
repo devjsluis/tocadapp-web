@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Cookies from "js-cookie";
 import { api } from "@/lib/axios";
 import {
   LayoutDashboard,
@@ -12,11 +11,19 @@ import {
   DollarSign,
   LogOut,
   UserCircle,
+  CreditCard,
   LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authService } from "@/features/auth/services/auth.service";
 
+type CurrentUser = {
+  id: number;
+  email: string;
+  name: string;
+  last_name: string;
+  role: string;
+};
 interface MenuItem {
   name: string;
   icon: LucideIcon;
@@ -37,10 +44,38 @@ const contactosItem: MenuItem = {
   href: "/dashboard/musicians",
 };
 
+const subscriptionsAdminItem: MenuItem = {
+  name: "Suscripciones",
+  icon: CreditCard,
+  href: "/dashboard/admin/subscriptions",
+};
+
+const isActiveRoute = (pathname: string | null, href: string) => {
+  if (!pathname) return false;
+
+  if (href === "/dashboard") {
+    return pathname === href;
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+};
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLeader, setIsLeader] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<CurrentUser>("/users/me")
+      .then(({ data }) => {
+        setCurrentUser(data);
+      })
+      .catch(() => {
+        setCurrentUser(null);
+      });
+  }, []);
 
   useEffect(() => {
     api
@@ -54,9 +89,11 @@ export function Sidebar() {
       .catch(() => {});
   }, []);
 
-  const menuItems = isLeader
-    ? [...baseMenuItems, contactosItem]
-    : baseMenuItems;
+  const menuItems = [
+    ...baseMenuItems,
+    ...(isLeader ? [contactosItem] : []),
+    ...(currentUser?.role === "admin" ? [subscriptionsAdminItem] : []),
+  ];
 
   const handleLogout = () => {
     authService.logout();
@@ -100,7 +137,9 @@ export function Sidebar() {
                 href={item.href}
                 className={cn(
                   "flex flex-col items-center gap-1 transition-colors",
-                  pathname === item.href ? "text-purple-500" : "text-zinc-400",
+                  isActiveRoute(pathname, item.href)
+                    ? "text-purple-500"
+                    : "text-zinc-400",
                 )}
               >
                 <Icon size={24} />
@@ -132,7 +171,7 @@ function NavLink({ item, pathname }: NavLinkProps) {
       href={item.href}
       className={cn(
         "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-        pathname === item.href
+        isActiveRoute(pathname, item.href)
           ? "bg-purple-500/10 text-purple-500"
           : "text-zinc-400 hover:bg-zinc-900 hover:text-white",
       )}

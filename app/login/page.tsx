@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
+import { subscriptionsService } from "@/features/subscriptions/services/subscriptions.service";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,11 +29,21 @@ export default function LoginPage() {
     try {
       await authService.login(formData);
 
-      toast.success("¡Bienvenido!", {
-        description: "Accediendo al dashboard",
-      });
+      const subscription = await subscriptionsService.getCurrent();
 
-      router.push("/dashboard");
+      if (subscription.hasAccess) {
+        toast.success("¡Bienvenido!", {
+          description: "Accediendo al dashboard",
+        });
+
+        router.push("/dashboard");
+      } else {
+        toast.info("Suscripción requerida", {
+          description: "Activa tu plan para usar TocadApp",
+        });
+
+        router.push("/subscription-required");
+      }
     } catch (err) {
       let message = "Credenciales incorrectas o error de servidor";
 
