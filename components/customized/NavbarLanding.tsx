@@ -1,32 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { usePathname, useRouter } from "next/navigation";
-import Cookies from "js-cookie";
+import { tokenStorage } from "@/features/auth/storage/token-storage";
 
 export const NavbarLanding = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  useEffect(() => {
-    const checkToken = () => {
-      const token = Cookies.get("token");
-      if (!!token !== isLoggedIn) {
-        setIsLoggedIn(!!token);
-      }
-    };
-
-    checkToken();
-  }, [isLoggedIn]);
+  const isLoggedIn = useSyncExternalStore(
+    tokenStorage.subscribe,
+    tokenStorage.has,
+    () => false,
+  );
 
   const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     if (pathname === "/") {
       e.preventDefault();
+
       const element = document.getElementById(id);
+
       if (element) {
         element.scrollIntoView({ behavior: "smooth" });
         window.history.pushState(null, "", `/#${id}`);
@@ -53,6 +49,7 @@ export const NavbarLanding = () => {
             Inicio
           </Link>
         </li>
+
         <li className="hidden md:block">
           <Link
             href="/#caracteristicas"
@@ -62,6 +59,7 @@ export const NavbarLanding = () => {
             Características
           </Link>
         </li>
+
         <li className="hidden md:block">
           <Link
             href="/#precios"
@@ -71,6 +69,7 @@ export const NavbarLanding = () => {
             Precios
           </Link>
         </li>
+
         <li className="hidden md:block">
           <Link
             href="/#contacto"

@@ -15,6 +15,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { authService } from "@/features/auth/services/auth.service";
 
 interface MenuItem {
   name: string;
@@ -45,7 +46,9 @@ export function Sidebar() {
     api
       .get("/bands")
       .then(({ data }) => {
-        const hasOwnBand = data.data?.some((b: { is_owner: boolean }) => b.is_owner);
+        const hasOwnBand = data.data?.some(
+          (b: { is_owner: boolean }) => b.is_owner,
+        );
         setIsLeader(hasOwnBand);
       })
       .catch(() => {});
@@ -56,8 +59,7 @@ export function Sidebar() {
     : baseMenuItems;
 
   const handleLogout = () => {
-    Cookies.remove("token");
-    delete api.defaults.headers.common["Authorization"];
+    authService.logout();
     router.push("/");
     router.refresh();
   };
