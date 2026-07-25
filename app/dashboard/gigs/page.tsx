@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { api } from "@/lib/axios";
+import { gigsService } from "@/features/gigs/services/gigs.service";
+import { bandsService } from "@/features/bands/services/bands.service";
+import type { Band } from "@/features/bands/types/band";
+import type {
+  Gig,
+  GigFilter,
+  GigFormData,
+  SaveGigPayload,
+  ViewMode,
+} from "@/features/gigs/types/gig";
 import {
   Plus,
   Calendar,
@@ -24,46 +33,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-interface Band {
-  id: string;
-  name: string;
-  is_owner: boolean;
-  can_create_gigs: boolean;
-}
-
-interface Gig {
-  id: string;
-  title: string;
-  place: string;
-  date: string;
-  time: string;
-  amount: number | string;
-  hours: number | string;
-  notes?: string;
-  band_id?: string | null;
-  band_name?: string | null;
-  is_owner: boolean;
-  my_amount?: number | null;
-  my_collected?: number | null;
-  collected_amount?: number | null;
-  my_attending?: boolean | null;
-}
-
-type FormData = {
-  title: string;
-  place: string;
-  date: string;
-  time: string;
-  hours: string;
-  notes: string;
-  band_id: string;
-};
-
-type ViewMode = "grid" | "month" | "calendar";
-
-type GigFilter = "upcoming" | "past" | "all";
-
-const emptyForm: FormData = {
+const emptyForm: GigFormData = {
   title: "",
   place: "",
   date: "",
@@ -76,12 +46,6 @@ const emptyForm: FormData = {
 function parseLocalDate(dateStr: string): Date {
   const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
   return new Date(year, month - 1, day);
-}
-
-function startOfDay(date: Date): Date {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
 }
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -251,7 +215,7 @@ export default function GigsPage() {
   const [deleting, setDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [gigFilter, setGigFilter] = useState<GigFilter>("all");
-  const [formData, setFormData] = useState<FormData>(emptyForm);
+  const [formData, setFormData] = useState<GigFormData>(emptyForm);
   const [collectedGig, setCollectedGig] = useState<Gig | null>(null);
   const [collectedAmount, setCollectedAmount] = useState("");
   const [calendarDate, setCalendarDate] = useState(() => {
@@ -295,8 +259,8 @@ export default function GigsPage() {
 
   const fetchGigs = async () => {
     try {
-      const { data } = await api.get("/gigs");
-      setGigs(data.data);
+      const gigsData = await gigsService.getAll();
+      setGigs(gigsData);
     } catch (error) {
       console.error("Error al obtener tocadas", error);
     } finally {
@@ -306,10 +270,10 @@ export default function GigsPage() {
 
   const fetchBands = async () => {
     try {
-      const { data } = await api.get("/bands");
-      setBands(data.data.filter((b: Band) => b.is_owner || b.can_create_gigs));
-    } catch {
-      // bands no crítico si falla
+      const availableBands = await bandsService.getAvailableForGigCreation();
+      setBands(availableBands);
+    } catch (error) {
+      console.error("Error al obtener bandas", error);
     }
   };
 
@@ -389,18 +353,20 @@ export default function GigsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload = {
+      const payload: SaveGigPayload = {
         ...formData,
         amount: null,
         band_id: formData.band_id || null,
       };
+
       if (editingGig) {
-        await api.put(`/gigs/${editingGig.id}`, payload);
+        await gigsService.update(editingGig.id, payload);
       } else {
-        await api.post("/gigs", payload);
+        await gigsService.create(payload);
       }
+
       closeForm();
-      fetchGigs();
+      await fetchGigs();
     } catch (error) {
       console.error("Error al guardar la tocada:", error);
     }
@@ -410,7 +376,7 @@ export default function GigsPage() {
     if (!confirmDeleteId) return;
     setDeleting(true);
     try {
-      await api.delete(`/gigs/${confirmDeleteId}`);
+      await gigsService.delete(confirmDeleteId);
       setGigs((prev) => prev.filter((g) => g.id !== confirmDeleteId));
     } catch (error) {
       console.error("Error al eliminar:", error);
@@ -425,7 +391,7 @@ export default function GigsPage() {
     attending: boolean | null,
   ) => {
     try {
-      await api.put(`/gigs/${gigId}/attending`, { attending });
+      await gigsService.setAttendance(gigId, attending);
       setGigs((prev) =>
         prev.map((g) =>
           g.id === gigId ? { ...g, my_attending: attending } : g,
@@ -440,17 +406,14 @@ export default function GigsPage() {
     if (!collectedGig) return;
     try {
       if (collectedGig.is_owner) {
-        await api.put(`/gigs/${collectedGig.id}/collected`, { amount });
+        await gigsService.setOwnerCollectedAmount(collectedGig.id, amount);
         setGigs((prev) =>
           prev.map((g) =>
             g.id === collectedGig.id ? { ...g, collected_amount: amount } : g,
           ),
         );
       } else {
-        await api.put(`/gigs/${collectedGig.id}/my-earnings`, {
-          amount: null,
-          collected_amount: amount,
-        });
+        await gigsService.setMemberCollectedAmount(collectedGig.id, amount);
         setGigs((prev) =>
           prev.map((g) =>
             g.id === collectedGig.id ? { ...g, my_collected: amount } : g,
@@ -1461,7 +1424,7 @@ export default function GigsPage() {
                 </div>
               ) : (
                 <div
-                  className={`flex w-[200%] transform-gpu transition-transform duration-[350ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  className={`flex w-[200%] transform-gpu transition-transform duration-350 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                     slideDirection === "next"
                       ? isSlideMoving
                         ? "-translate-x-1/2"
