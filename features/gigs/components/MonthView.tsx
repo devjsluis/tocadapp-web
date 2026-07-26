@@ -50,12 +50,12 @@ export function MonthView({
 
         return (
           <div key={label}>
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">
                 {label}
               </h2>
 
-              <div className="flex items-center gap-3">
+              <div className="flex shrink-0 items-center gap-3">
                 <span className="text-xs text-zinc-600">
                   {monthGigs.length}{" "}
                   {monthGigs.length === 1 ? "tocada" : "tocadas"}
@@ -69,7 +69,7 @@ export function MonthView({
               </div>
             </div>
 
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
+            <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
               {monthGigs.map((gig, index) => {
                 const gigDate = parseLocalDate(gig.date);
                 const isPast = gigDate < today;
@@ -86,7 +86,7 @@ export function MonthView({
                 return (
                   <div
                     key={gig.id}
-                    className={`flex items-center gap-4 px-5 py-4 group hover:bg-zinc-800/40 transition-colors ${
+                    className={`group px-4 py-4 transition-colors hover:bg-zinc-800/40 sm:px-5 ${
                       !isLast ? "border-b border-zinc-800/60" : ""
                     } ${
                       hasConflict && gig.my_attending === false
@@ -96,153 +96,195 @@ export function MonthView({
                           : ""
                     }`}
                   >
-                    <div
-                      className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 ${
-                        hasConflict
-                          ? "bg-yellow-500/15 text-yellow-500"
-                          : isPast
-                            ? "bg-zinc-800 text-zinc-500"
-                            : "bg-purple-500/15 text-purple-400"
-                      }`}
-                    >
-                      <span className="text-sm font-bold leading-none">
-                        {gigDate.getDate()}
-                      </span>
-
-                      <span
-                        className="text-[9px] uppercase mt-0.5 opacity-70"
-                        suppressHydrationWarning
+                    <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+                      <div
+                        className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl ${
+                          hasConflict
+                            ? "bg-yellow-500/15 text-yellow-500"
+                            : isPast
+                              ? "bg-zinc-800 text-zinc-500"
+                              : "bg-purple-500/15 text-purple-400"
+                        }`}
                       >
-                        {gigDate.toLocaleDateString("es-MX", {
-                          weekday: "short",
-                        })}
-                      </span>
-                    </div>
+                        <span className="text-sm font-bold leading-none">
+                          {gigDate.getDate()}
+                        </span>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p
-                          className={`font-semibold truncate ${
-                            isPast ? "text-zinc-500" : "text-white"
-                          }`}
+                        <span
+                          className="mt-0.5 text-[9px] uppercase opacity-70"
+                          suppressHydrationWarning
                         >
-                          {gig.title}
-                        </p>
+                          {gigDate.toLocaleDateString("es-MX", {
+                            weekday: "short",
+                          })}
+                        </span>
+                      </div>
 
-                        {gig.band_name && <BandBadge name={gig.band_name} />}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p
+                            className={`min-w-0 truncate font-semibold ${
+                              isPast ? "text-zinc-500" : "text-white"
+                            }`}
+                          >
+                            {gig.title}
+                          </p>
+
+                          {gig.band_name && <BandBadge name={gig.band_name} />}
+
+                          {hasConflict && (
+                            <AlertTriangle
+                              size={12}
+                              className="shrink-0 text-yellow-500"
+                            />
+                          )}
+                        </div>
+
+                        <div className="mt-1 flex flex-col gap-1 text-xs text-zinc-600 sm:flex-row sm:items-center sm:gap-3">
+                          <span className="flex min-w-0 items-center gap-1">
+                            <MapPin size={11} className="shrink-0" />
+
+                            <span className="truncate">{gig.place}</span>
+                          </span>
+
+                          <span className="flex shrink-0 items-center gap-1">
+                            <Clock size={11} />
+                            {String(gig.time).slice(0, 5)} · {gig.hours} hrs
+                          </span>
+                        </div>
 
                         {hasConflict && (
-                          <AlertTriangle
-                            size={12}
-                            className="text-yellow-500 shrink-0"
-                          />
+                          <div className="mt-2 flex items-center gap-2">
+                            {gig.my_attending == null ? (
+                              <>
+                                <span className="text-[10px] text-yellow-500/70">
+                                  ¿Vas?
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() => onSetAttending(gig.id, true)}
+                                  className="cursor-pointer rounded bg-zinc-800 px-2 py-1 text-[10px] text-zinc-500 transition-colors hover:bg-green-500/20 hover:text-green-400"
+                                >
+                                  Sí
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => onSetAttending(gig.id, false)}
+                                  className="cursor-pointer rounded bg-zinc-800 px-2 py-1 text-[10px] text-zinc-500 transition-colors hover:bg-red-500/20 hover:text-red-400"
+                                >
+                                  No
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span
+                                  className={`flex items-center gap-1 text-[10px] font-semibold ${
+                                    gig.my_attending
+                                      ? "text-green-400"
+                                      : "text-red-400"
+                                  }`}
+                                >
+                                  {gig.my_attending ? (
+                                    <CheckCircle2 size={11} />
+                                  ) : (
+                                    <XCircle size={11} />
+                                  )}
+
+                                  {gig.my_attending ? "Vas" : "No vas"}
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() => onSetAttending(gig.id, null)}
+                                  className="cursor-pointer text-[10px] text-zinc-600 transition-colors hover:text-zinc-400"
+                                >
+                                  cambiar
+                                </button>
+                              </>
+                            )}
+                          </div>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-3 mt-0.5 text-xs text-zinc-600">
-                        <span className="flex items-center gap-1">
-                          <MapPin size={11} />
-                          {gig.place}
-                        </span>
+                      <div className="hidden shrink-0 items-center gap-3 sm:flex">
+                        {collectedNumber === null ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenCollected(gig)}
+                            className="cursor-pointer text-xs text-zinc-600 transition-colors hover:text-yellow-400"
+                          >
+                            + Registrar cobro
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onOpenCollected(gig, String(collectedNumber))
+                            }
+                            className="flex cursor-pointer flex-col items-end gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-zinc-800"
+                          >
+                            <span
+                              className={`flex items-center gap-1 text-sm font-bold ${
+                                isPast ? "text-green-500/70" : "text-green-400"
+                              }`}
+                            >
+                              <CheckCircle2 size={12} />$
+                              {formatMoney(collectedNumber)}
+                            </span>
 
-                        <span className="flex items-center gap-1">
-                          <Clock size={11} />
-                          {String(gig.time).slice(0, 5)} · {gig.hours} hrs
-                        </span>
+                            <span className="text-[10px] text-zinc-600">
+                              editar cobro
+                            </span>
+                          </button>
+                        )}
+
+                        <div className="opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                          <GigActionButtons
+                            gig={gig}
+                            onEdit={onEditGig}
+                            onDelete={onDeleteGig}
+                          />
+                        </div>
                       </div>
 
-                      {hasConflict && (
-                        <div className="flex items-center gap-2 mt-1">
-                          {gig.my_attending == null ? (
-                            <>
-                              <span className="text-[10px] text-yellow-500/70">
-                                ¿Vas?
-                              </span>
-
-                              <button
-                                type="button"
-                                onClick={() => onSetAttending(gig.id, true)}
-                                className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-green-500/20 hover:text-green-400 text-zinc-500 cursor-pointer transition-colors"
-                              >
-                                Sí
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => onSetAttending(gig.id, false)}
-                                className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 text-zinc-500 cursor-pointer transition-colors"
-                              >
-                                No
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <span
-                                className={`text-[10px] font-semibold flex items-center gap-1 ${
-                                  gig.my_attending
-                                    ? "text-green-400"
-                                    : "text-red-400"
-                                }`}
-                              >
-                                {gig.my_attending ? (
-                                  <CheckCircle2 size={11} />
-                                ) : (
-                                  <XCircle size={11} />
-                                )}
-
-                                {gig.my_attending ? "Vas" : "No vas"}
-                              </span>
-
-                              <button
-                                type="button"
-                                onClick={() => onSetAttending(gig.id, null)}
-                                className="text-[10px] text-zinc-600 hover:text-zinc-400 cursor-pointer transition-colors"
-                              >
-                                cambiar
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
+                      <div className="shrink-0 sm:hidden">
+                        <GigActionButtons
+                          gig={gig}
+                          onEdit={onEditGig}
+                          onDelete={onDeleteGig}
+                        />
+                      </div>
                     </div>
 
-                    {collectedNumber === null ? (
-                      <button
-                        type="button"
-                        onClick={() => onOpenCollected(gig)}
-                        className="text-xs text-zinc-600 hover:text-yellow-400 transition-colors shrink-0 cursor-pointer"
-                      >
-                        + Registrar cobro
-                      </button>
-                    ) : (
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <span
-                          className={`flex items-center gap-1 text-sm font-bold ${
-                            isPast ? "text-green-500/70" : "text-green-400"
-                          }`}
+                    <div className="mt-3 ml-14 sm:hidden">
+                      {collectedNumber === null ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenCollected(gig)}
+                          className="flex min-h-10 w-full cursor-pointer items-center justify-center rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-3 text-xs font-semibold text-yellow-500 transition-colors hover:bg-yellow-500/10"
                         >
-                          <CheckCircle2 size={12} />$
-                          {formatMoney(collectedNumber)}
-                        </span>
-
+                          + Registrar cobro
+                        </button>
+                      ) : (
                         <button
                           type="button"
                           onClick={() =>
                             onOpenCollected(gig, String(collectedNumber))
                           }
-                          className="text-[10px] text-zinc-600 transition-colors hover:text-zinc-400 cursor-pointer"
+                          className="flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg border border-green-500/10 bg-green-500/5 px-3 transition-colors hover:bg-green-500/10"
                         >
-                          editar cobro
-                        </button>
-                      </div>
-                    )}
+                          <span className="flex items-center gap-1 text-sm font-bold text-green-400">
+                            <CheckCircle2 size={13} />$
+                            {formatMoney(collectedNumber)}
+                          </span>
 
-                    <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
-                      <GigActionButtons
-                        gig={gig}
-                        onEdit={onEditGig}
-                        onDelete={onDeleteGig}
-                      />
+                          <span className="text-[10px] font-medium text-green-500/60">
+                            editar cobro
+                          </span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
