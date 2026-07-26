@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import {
   AlertTriangle,
   CalendarDays,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -15,6 +16,7 @@ import { BandBadge } from "@/features/gigs/components/BandBadge";
 import { GigActionButtons } from "@/features/gigs/components/GigActionButtons";
 import type { Gig, GigFilter } from "@/features/gigs/types/gig";
 import {
+  formatMoney,
   getCalendarDays,
   isSameDay,
   parseLocalDate,
@@ -29,6 +31,7 @@ interface CalendarViewProps {
   conflictingIds: Set<string>;
   onEditGig: (gig: Gig) => void;
   onDeleteGig: (gigId: string) => void;
+  onOpenCollected: (gig: Gig, amount?: string) => void;
 }
 
 export function CalendarView({
@@ -37,6 +40,7 @@ export function CalendarView({
   conflictingIds,
   onEditGig,
   onDeleteGig,
+  onOpenCollected,
 }: CalendarViewProps) {
   const initialDate = new Date();
 
@@ -400,6 +404,12 @@ export function CalendarView({
                 const gigDate = getGigDate(gig);
                 const isPast = gigDate < now;
                 const hasConflict = conflictingIds.has(gig.id);
+                const collected = gig.is_owner
+                  ? gig.collected_amount
+                  : gig.my_collected;
+
+                const collectedNumber =
+                  collected != null ? Number(collected) : null;
 
                 return (
                   <div
@@ -459,11 +469,41 @@ export function CalendarView({
                       </div>
                     </div>
 
-                    <GigActionButtons
-                      gig={gig}
-                      onEdit={onEditGig}
-                      onDelete={onDeleteGig}
-                    />
+                    <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-3">
+                      {collectedNumber === null ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenCollected(gig)}
+                          className="inline-flex min-h-9 items-center rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-2.5 text-xs font-medium text-yellow-500 transition-colors hover:bg-yellow-500/10 cursor-pointer"
+                        >
+                          + Cobro
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onOpenCollected(gig, String(collectedNumber))
+                          }
+                          className="flex min-h-9 flex-col items-end justify-center rounded-lg px-2 transition-colors hover:bg-zinc-800 cursor-pointer"
+                          title="Editar cobro"
+                        >
+                          <span className="flex items-center gap-1 text-sm font-bold text-green-400">
+                            <CheckCircle2 size={12} />$
+                            {formatMoney(collectedNumber)}
+                          </span>
+
+                          <span className="text-[10px] text-zinc-600">
+                            Editar cobro
+                          </span>
+                        </button>
+                      )}
+
+                      <GigActionButtons
+                        gig={gig}
+                        onEdit={onEditGig}
+                        onDelete={onDeleteGig}
+                      />
+                    </div>
                   </div>
                 );
               })}

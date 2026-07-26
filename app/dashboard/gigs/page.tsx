@@ -383,6 +383,7 @@ export default function GigsPage() {
           conflictingIds={conflictingIds}
           onEditGig={openEdit}
           onDeleteGig={setConfirmDeleteId}
+          onOpenCollected={openCollectedModal}
         />
       )}
 

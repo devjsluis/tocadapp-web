@@ -25,7 +25,7 @@ interface MonthViewProps {
   onEditGig: (gig: Gig) => void;
   onDeleteGig: (gigId: string) => void;
   onSetAttending: (gigId: string, attending: boolean | null) => Promise<void>;
-  onOpenCollected: (gig: Gig, amount: string) => void;
+  onOpenCollected: (gig: Gig, amount?: string) => void;
 }
 
 export function MonthView({
@@ -206,24 +206,36 @@ export function MonthView({
                       )}
                     </div>
 
-                    {collectedNumber !== null ? (
-                      <span
-                        className={`text-sm font-bold shrink-0 flex items-center gap-1 ${
-                          isPast ? "text-green-500/70" : "text-green-400"
-                        }`}
-                      >
-                        <CheckCircle2 size={12} />$
-                        {formatMoney(collectedNumber)}
-                      </span>
-                    ) : isPast ? (
+                    {collectedNumber === null ? (
                       <button
                         type="button"
-                        onClick={() => onOpenCollected(gig, "")}
-                        className="text-xs text-zinc-700 hover:text-yellow-400 transition-colors shrink-0 cursor-pointer"
+                        onClick={() => onOpenCollected(gig)}
+                        className="text-xs text-zinc-600 hover:text-yellow-400 transition-colors shrink-0 cursor-pointer"
                       >
-                        + Cobro
+                        + Registrar cobro
                       </button>
-                    ) : null}
+                    ) : (
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span
+                          className={`flex items-center gap-1 text-sm font-bold ${
+                            isPast ? "text-green-500/70" : "text-green-400"
+                          }`}
+                        >
+                          <CheckCircle2 size={12} />$
+                          {formatMoney(collectedNumber)}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onOpenCollected(gig, String(collectedNumber))
+                          }
+                          className="text-[10px] text-zinc-600 transition-colors hover:text-zinc-400 cursor-pointer"
+                        >
+                          editar cobro
+                        </button>
+                      </div>
+                    )}
 
                     <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
                       <GigActionButtons
