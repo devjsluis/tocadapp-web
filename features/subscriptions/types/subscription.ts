@@ -9,7 +9,7 @@ export type SubscriptionPlan = {
 export type CurrentSubscription = {
   id: number;
   status: "ACTIVE" | "CANCELED" | "PAST_DUE" | "EXPIRED";
-  provider: "MANUAL" | "STRIPE";
+  provider: "TRIAL" | "MANUAL" | "STRIPE";
   priceAmount: number;
   currency: string;
   startedAt: string;
