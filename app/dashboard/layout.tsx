@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/Sidebar";
 import { SubscriptionGuard } from "@/features/subscriptions/components/SubscriptionGuard";
+import { SubscriptionExpirationBanner } from "@/features/subscriptions/components/SubscriptionExpirationBanner";
 import { TrialBanner } from "@/features/subscriptions/components/TrialBanner";
 
 export default function DashboardLayout({
@@ -15,6 +16,7 @@ export default function DashboardLayout({
         <main className="mb-16 flex-1 overflow-y-auto p-4 md:mb-0 md:p-8">
           <div className="space-y-6">
             <TrialBanner />
+            <SubscriptionExpirationBanner />
             {children}
           </div>
         </main>
