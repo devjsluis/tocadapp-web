@@ -5,13 +5,19 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import axios from "axios";
-import { authService } from "@/services/auth.service";
+import { authService } from "@/features/auth/services/auth.service";
 import { NavbarLanding } from "@/components/customized/NavbarLanding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { subscriptionsService } from "@/features/subscriptions/services/subscriptions.service";
+
+type LoginApiError = {
+  error?: string;
+  code?: string;
+  email?: string;
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,11 +53,32 @@ export default function LoginPage() {
     } catch (err) {
       let message = "Credenciales incorrectas o error de servidor";
 
-      if (axios.isAxiosError(err)) {
-        message = err.response?.data?.error || message;
+      if (axios.isAxiosError<LoginApiError>(err)) {
+        const responseData = err.response?.data;
+
+        if (responseData?.code === "EMAIL_NOT_VERIFIED") {
+          const verificationEmail = responseData.email || formData.email;
+
+          toast.info("Confirma tu correo", {
+            description:
+              "Te falta verificar tu dirección de correo electrónico.",
+          });
+
+          router.push(
+            `/verify-email-required?email=${encodeURIComponent(
+              verificationEmail.trim().toLowerCase(),
+            )}`,
+          );
+
+          return;
+        }
+
+        message = responseData?.error || message;
       }
 
-      toast.error("Error al iniciar sesión", { description: message });
+      toast.error("Error al iniciar sesión", {
+        description: message,
+      });
     } finally {
       setLoading(false);
     }
@@ -157,7 +184,7 @@ export default function LoginPage() {
                 href="/register"
                 className="font-bold text-white hover:text-gray-300 transition-colors cursor-pointer"
               >
-                Regístrate gratis
+                Crear cuenta
               </Link>
             </p>
             <Link

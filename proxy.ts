@@ -9,7 +9,9 @@ export function proxy(request: NextRequest) {
     pathname === "/" ||
     pathname === "/login" ||
     pathname === "/register" ||
-    pathname === "/forgot-password";
+    pathname === "/forgot-password" ||
+    pathname === "/verify-email" ||
+    pathname === "/verify-email-required";
 
   if (!isPublicPath && !token) {
     return NextResponse.redirect(new URL("/login", request.url));

@@ -6,9 +6,14 @@ import type {
   RegisterRequest,
 } from "@/features/auth/types/auth";
 
+type MessageResponse = {
+  message: string;
+};
+
 export const authService = {
   register: async (userData: RegisterRequest) => {
     const { data } = await api.post("/users", userData);
+
     return data;
   },
 
@@ -26,10 +31,25 @@ export const authService = {
     tokenStorage.remove();
   },
 
-  forgotPassword: async (email: string) => {
-    const { data } = await api.post("/users/forgot-password", {
-      email,
+  verifyEmail: async (token: string): Promise<MessageResponse> => {
+    const { data } = await api.post<MessageResponse>("/users/verify-email", {
+      token,
     });
+
+    return data;
+  },
+
+  resendEmailVerification: async (email: string): Promise<MessageResponse> => {
+    const { data } = await api.post<MessageResponse>(
+      "/users/resend-verification",
+      { email },
+    );
+
+    return data;
+  },
+
+  forgotPassword: async (email: string) => {
+    const { data } = await api.post("/users/forgot-password", { email });
 
     return data;
   },

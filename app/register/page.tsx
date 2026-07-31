@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/types/auth";
-import { authService } from "@/services/auth.service";
+import { authService } from "@/features/auth/services/auth.service";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function RegisterPage() {
@@ -30,12 +30,24 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await authService.register(formData);
+      const response = await authService.register(formData);
 
-      toast.success("¡Cuenta creada!", {
-        description: "Ya puedes iniciar sesión.",
-      });
-      router.push("/login");
+      if (response.emailSent) {
+        toast.success("Cuenta creada", {
+          description: "Te enviamos un enlace para confirmar tu correo.",
+        });
+      } else {
+        toast.warning("Cuenta creada", {
+          description:
+            "No pudimos enviar el correo. Puedes reenviarlo en la siguiente pantalla.",
+        });
+      }
+
+      router.push(
+        `/verify-email-required?email=${encodeURIComponent(
+          formData.email.trim().toLowerCase(),
+        )}&sent=${response.emailSent ? "1" : "0"}`,
+      );
     } catch (err) {
       let message = "Error al conectar con el servidor";
 
@@ -62,7 +74,7 @@ export default function RegisterPage() {
               Crea tu <span className="text-purple-600">Cuenta</span>
             </h1>
             <p className="text-zinc-400">
-              Únete a la comunidad de músicos más organizada
+              Organiza tus tocadas, cobros y bandas en un solo lugar
             </p>
           </div>
 
