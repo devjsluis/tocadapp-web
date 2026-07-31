@@ -320,7 +320,7 @@ export function CalendarView({
         className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40 select-none touch-pan-y"
       >
         <div className="grid grid-cols-7 border-b border-zinc-800 bg-zinc-900">
-          {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((dayName) => (
+          {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((dayName) => (
             <div
               key={dayName}
               className="py-3 text-center text-[10px] sm:text-xs font-bold uppercase tracking-wider text-zinc-500"

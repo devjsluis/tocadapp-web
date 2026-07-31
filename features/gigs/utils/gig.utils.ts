@@ -26,10 +26,9 @@ export function getCalendarDays(calendarDate: Date): Date[] {
   const firstDayOfMonth = new Date(year, month, 1);
   const lastDayOfMonth = new Date(year, month + 1, 0);
 
-  // JavaScript usa domingo = 0.
-  // Lo convertimos para que lunes = 0 y domingo = 6.
-  const daysBeforeMonth = (firstDayOfMonth.getDay() + 6) % 7;
-  const daysAfterMonth = 6 - ((lastDayOfMonth.getDay() + 6) % 7);
+  // JavaScript usa domingo = 0 y sábado = 6.
+  const daysBeforeMonth = firstDayOfMonth.getDay();
+  const daysAfterMonth = 6 - lastDayOfMonth.getDay();
 
   const calendarStart = new Date(year, month, 1 - daysBeforeMonth);
   const totalDays = daysBeforeMonth + lastDayOfMonth.getDate() + daysAfterMonth;
