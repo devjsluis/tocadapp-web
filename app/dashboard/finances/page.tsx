@@ -894,7 +894,7 @@ export default function FinancesPage() {
                       <tr className="bg-zinc-900/40">
                         <td
                           className="px-5 py-3.5 font-bold text-zinc-300"
-                          colSpan={3}
+                          colSpan={2}
                         >
                           Total
                         </td>
