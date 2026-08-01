@@ -84,7 +84,7 @@ export default function SubscriptionRequiredPage() {
 
           <div className="my-8 rounded-2xl border border-purple-500/20 bg-purple-500/5 p-5">
             <div className="flex items-end gap-2">
-              <span className="text-4xl font-bold">$49</span>
+              <span className="text-4xl font-bold">$50</span>
               <span className="pb-1 text-zinc-400">MXN al mes</span>
             </div>
 
