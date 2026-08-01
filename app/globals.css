@@ -148,3 +148,13 @@ body {
   background-color: #09090b;
   color: white;
 }
+
+.gig-modal-panel {
+  transform: translateY(var(--sheet-translate-y));
+}
+
+@media (min-width: 640px) {
+  .gig-modal-panel {
+    transform: none;
+  }
+}
