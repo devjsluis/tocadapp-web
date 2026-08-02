@@ -49,6 +49,7 @@ interface Expense {
 
 type TableTab = "pasadas" | "proximas" | "todas";
 
+type FinancePeriod = "all" | "today" | "week" | "month" | "year" | "custom";
 const EXPENSE_CATEGORIES = [
   "Baquetas",
   "Cañas",
@@ -101,6 +102,10 @@ export default function FinancesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TableTab>("pasadas");
+  const [period, setPeriod] = useState<FinancePeriod>("all");
+  const [selectedBand, setSelectedBand] = useState("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
 
   // Expense form state
   const [showExpenseForm, setShowExpenseForm] = useState(false);
@@ -128,8 +133,86 @@ export default function FinancesPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const allPastGigs = gigs.filter((g) => parseLocalDate(g.date) < today);
-  const allFutureGigs = gigs
+  const availableBands = Array.from(
+    new Set(
+      gigs
+        .map((gig) => gig.band_name?.trim())
+        .filter((bandName): bandName is string => Boolean(bandName)),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "es"));
+
+  const isGigInsideSelectedPeriod = (gig: Gig): boolean => {
+    if (period === "all") {
+      return true;
+    }
+
+    const gigDate = parseLocalDate(gig.date);
+
+    const startOfToday = new Date(today);
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    if (period === "today") {
+      return gigDate >= startOfToday && gigDate <= endOfToday;
+    }
+
+    if (period === "week") {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay());
+
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+
+      return gigDate >= weekStart && gigDate <= weekEnd;
+    }
+
+    if (period === "month") {
+      return (
+        gigDate.getMonth() === today.getMonth() &&
+        gigDate.getFullYear() === today.getFullYear()
+      );
+    }
+
+    if (period === "year") {
+      return gigDate.getFullYear() === today.getFullYear();
+    }
+
+    if (period === "custom") {
+      if (!customStartDate || !customEndDate) {
+        return true;
+      }
+
+      const startDate = parseLocalDate(customStartDate);
+      const endDate = parseLocalDate(customEndDate);
+      endDate.setHours(23, 59, 59, 999);
+
+      return gigDate >= startDate && gigDate <= endDate;
+    }
+
+    return true;
+  };
+
+  const isGigInsideSelectedBand = (gig: Gig): boolean => {
+    if (selectedBand === "all") {
+      return true;
+    }
+
+    if (selectedBand === "personal") {
+      return !gig.band_name;
+    }
+
+    return gig.band_name === selectedBand;
+  };
+
+  const filteredGigs = gigs.filter(
+    (gig) => isGigInsideSelectedPeriod(gig) && isGigInsideSelectedBand(gig),
+  );
+
+  const allPastGigs = filteredGigs.filter(
+    (gig) => parseLocalDate(gig.date) < today,
+  );
+  const allFutureGigs = filteredGigs
     .filter((g) => parseLocalDate(g.date) >= today)
     .sort(
       (a, b) =>
@@ -150,6 +233,29 @@ export default function FinancesPage() {
   const paidHours = paidGigs.reduce((acc, g) => acc + Number(g.hours), 0);
   const tarifaReal = paidHours > 0 ? totalCollected / paidHours : 0;
   const hasCollectedTracking = pastGigs.length > 0;
+
+  const earningsByBand = paidGigs.reduce((acc, gig) => {
+    const bandName = gig.band_name?.trim() || "Eventos personales";
+    const collected = effectiveCollected(gig) ?? 0;
+
+    const current = acc.get(bandName) ?? {
+      name: bandName,
+      total: 0,
+      gigs: 0,
+    };
+
+    current.total += collected;
+    current.gigs += 1;
+
+    acc.set(bandName, current);
+
+    return acc;
+  }, new Map<string, { name: string; total: number; gigs: number }>());
+
+  const topEarningBand =
+    Array.from(earningsByBand.values()).sort(
+      (first, second) => second.total - first.total,
+    )[0] ?? null;
 
   // ── Gastos ──
   const totalExpenses = expenses.reduce((acc, e) => acc + Number(e.amount), 0);
@@ -230,7 +336,11 @@ export default function FinancesPage() {
 
   // ── Tabla ──
   const tableGigs =
-    tab === "pasadas" ? allPastGigs : tab === "proximas" ? allFutureGigs : gigs;
+    tab === "pasadas"
+      ? allPastGigs
+      : tab === "proximas"
+        ? allFutureGigs
+        : filteredGigs;
 
   const tableHours = tableGigs.reduce((acc, g) => acc + Number(g.hours), 0);
 
@@ -280,6 +390,105 @@ export default function FinancesPage() {
           Tu dinero real y lo que viene
         </p>
       </div>
+
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 sm:p-5">
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
+              Periodo
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              {(
+                [
+                  { value: "all", label: "Todo" },
+                  { value: "today", label: "Hoy" },
+                  { value: "week", label: "Semana" },
+                  { value: "month", label: "Mes" },
+                  { value: "year", label: "Año" },
+                  { value: "custom", label: "Personalizado" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setPeriod(option.value)}
+                  className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                    period === option.value
+                      ? "bg-purple-600 text-white"
+                      : "bg-zinc-800 text-zinc-500 hover:text-white"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {period === "custom" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="finance-start-date"
+                  className="mb-1.5 block text-xs font-medium text-zinc-500"
+                >
+                  Desde
+                </label>
+
+                <input
+                  id="finance-start-date"
+                  type="date"
+                  value={customStartDate}
+                  onChange={(event) => setCustomStartDate(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="finance-end-date"
+                  className="mb-1.5 block text-xs font-medium text-zinc-500"
+                >
+                  Hasta
+                </label>
+
+                <input
+                  id="finance-end-date"
+                  type="date"
+                  value={customEndDate}
+                  onChange={(event) => setCustomEndDate(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white outline-none focus:border-purple-500"
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label
+              htmlFor="finance-band-filter"
+              className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500"
+            >
+              Banda
+            </label>
+
+            <select
+              id="finance-band-filter"
+              value={selectedBand}
+              onChange={(event) => setSelectedBand(event.target.value)}
+              className="h-11 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white outline-none focus:border-purple-500 sm:max-w-sm"
+            >
+              <option value="all">Todas las bandas</option>
+              <option value="personal">Eventos personales</option>
+
+              {availableBands.map((bandName) => (
+                <option key={bandName} value={bandName}>
+                  {bandName}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
 
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -429,7 +638,7 @@ export default function FinancesPage() {
             </div>
 
             {/* Segunda fila: métricas */}
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
               <Card
                 loading={loading}
                 icon={<BarChart3 size={16} className="text-blue-400" />}
@@ -457,6 +666,26 @@ export default function FinancesPage() {
                     : "—"
                 }
                 sub={`${paidGigs.length} tocadas pagadas`}
+              />
+              <Card
+                loading={loading}
+                icon={<Users2 size={16} className="text-yellow-400" />}
+                color="yellow"
+                title={
+                  selectedBand === "all"
+                    ? "Origen con más ingresos"
+                    : selectedBand === "personal"
+                      ? "Eventos personales"
+                      : "Ingresos con esta banda"
+                }
+                value={topEarningBand ? `$${fmt(topEarningBand.total)}` : "—"}
+                sub={
+                  topEarningBand
+                    ? `${topEarningBand.name} · ${topEarningBand.gigs} ${
+                        topEarningBand.gigs === 1 ? "tocada" : "tocadas"
+                      }`
+                    : "Sin cobros registrados"
+                }
               />
             </div>
 
