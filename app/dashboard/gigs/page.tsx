@@ -56,6 +56,7 @@ export default function GigsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [gigFilter, setGigFilter] = useState<GigFilter>("all");
+  const [selectedBand, setSelectedBand] = useState("all");
   const [collectedGig, setCollectedGig] = useState<Gig | null>(null);
   const [collectedAmount, setCollectedAmount] = useState("");
 
@@ -81,18 +82,37 @@ export default function GigsPage() {
     };
   }, []);
 
-  const conflictingIds = getConflictingGigIds(gigs);
+  const availableBandNames = Array.from(
+    new Set(
+      gigs
+        .map((gig) => gig.band_name?.trim())
+        .filter((bandName): bandName is string => Boolean(bandName)),
+    ),
+  ).sort((first, second) => first.localeCompare(second, "es"));
 
+  const bandFilteredGigs = gigs.filter((gig) => {
+    if (selectedBand === "all") {
+      return true;
+    }
+
+    if (selectedBand === "personal") {
+      return !gig.band_name;
+    }
+
+    return gig.band_name === selectedBand;
+  });
+
+  const conflictingIds = getConflictingGigIds(bandFilteredGigs);
   const now = new Date();
 
   const getGigDate = (gig: Gig) =>
     new Date(`${gig.date.split("T")[0]}T${gig.time}`);
 
-  const upcomingCardGigs = gigs
+  const upcomingCardGigs = bandFilteredGigs
     .filter((gig) => getGigDate(gig) >= now)
     .sort((a, b) => getGigDate(a).getTime() - getGigDate(b).getTime());
 
-  const pastCardGigs = gigs
+  const pastCardGigs = bandFilteredGigs
     .filter((gig) => getGigDate(gig) < now)
     .sort((a, b) => getGigDate(b).getTime() - getGigDate(a).getTime());
 
@@ -103,7 +123,7 @@ export default function GigsPage() {
         ? pastCardGigs
         : [...upcomingCardGigs, ...pastCardGigs];
 
-  const monthSortedGigs = [...gigs].sort((a, b) => {
+  const monthSortedGigs = [...bandFilteredGigs].sort((a, b) => {
     const dateA = getGigDate(a);
     const dateB = getGigDate(b);
 
@@ -182,64 +202,121 @@ export default function GigsPage() {
       </div>
 
       {!loading && gigs.length > 0 && (
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 w-full sm:w-fit">
-            {[
-              { key: "upcoming", label: "Próximas" },
-              { key: "past", label: "Pasadas" },
-              { key: "all", label: "Todas" },
-            ].map((tab) => (
+        <div className="mb-6 space-y-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex w-full rounded-xl border border-zinc-800 bg-zinc-900 p-1 lg:w-fit">
+              {[
+                { key: "upcoming", label: "Próximas" },
+                { key: "past", label: "Pasadas" },
+                { key: "all", label: "Todas" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setGigFilter(tab.key as GigFilter)}
+                  className={`flex-1 cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition-colors lg:flex-none ${
+                    gigFilter === tab.key
+                      ? "bg-purple-600 text-white"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+              <div className="relative w-full sm:min-w-56 lg:w-auto">
+                <label htmlFor="gig-band-filter" className="sr-only">
+                  Filtrar por banda
+                </label>
+
+                <select
+                  id="gig-band-filter"
+                  value={selectedBand}
+                  onChange={(event) => setSelectedBand(event.target.value)}
+                  className="
+              h-11 w-full cursor-pointer appearance-none rounded-xl
+              border border-zinc-800 bg-zinc-900 px-3 pr-9
+              text-sm text-zinc-300 outline-none
+              transition-colors hover:border-zinc-700
+              focus:border-purple-500
+            "
+                >
+                  <option value="all">Todas las bandas</option>
+                  <option value="personal">Tocadas personales</option>
+
+                  {availableBandNames.map((bandName) => (
+                    <option key={bandName} value={bandName}>
+                      {bandName}
+                    </option>
+                  ))}
+                </select>
+
+                <Music
+                  size={15}
+                  className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-zinc-600"
+                />
+              </div>
+
+              <div className="flex w-full rounded-xl border border-zinc-800 bg-zinc-900 p-1 sm:w-fit">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("grid")}
+                  title="Vista en tarjetas"
+                  className={`flex-1 cursor-pointer rounded-lg p-2 transition-colors sm:flex-none ${
+                    viewMode === "grid"
+                      ? "bg-zinc-700 text-white"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <LayoutGrid size={16} className="mx-auto" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setViewMode("month")}
+                  title="Vista por mes"
+                  className={`flex-1 cursor-pointer rounded-lg p-2 transition-colors sm:flex-none ${
+                    viewMode === "month"
+                      ? "bg-zinc-700 text-white"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <List size={16} className="mx-auto" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setViewMode("calendar")}
+                  title="Vista calendario"
+                  className={`flex-1 cursor-pointer rounded-lg p-2 transition-colors sm:flex-none ${
+                    viewMode === "calendar"
+                      ? "bg-zinc-700 text-white"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <CalendarDays size={16} className="mx-auto" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {bandFilteredGigs.length === 0 && (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-8 text-center">
+              <p className="text-sm text-zinc-500">
+                No hay tocadas para esta banda.
+              </p>
+
               <button
-                key={tab.key}
-                onClick={() => setGigFilter(tab.key as GigFilter)}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                  gigFilter === tab.key
-                    ? "bg-purple-600 text-white"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
+                type="button"
+                onClick={() => setSelectedBand("all")}
+                className="mt-2 cursor-pointer text-sm font-medium text-purple-400 hover:text-purple-300"
               >
-                {tab.label}
+                Ver todas las tocadas
               </button>
-            ))}
-          </div>
-
-          <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 w-full sm:w-fit">
-            <button
-              onClick={() => setViewMode("grid")}
-              title="Vista en tarjetas"
-              className={`flex-1 sm:flex-none p-2 rounded-lg transition-colors cursor-pointer ${
-                viewMode === "grid"
-                  ? "bg-zinc-700 text-white"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              <LayoutGrid size={16} className="mx-auto" />
-            </button>
-
-            <button
-              onClick={() => setViewMode("month")}
-              title="Vista por mes"
-              className={`flex-1 sm:flex-none p-2 rounded-lg transition-colors cursor-pointer ${
-                viewMode === "month"
-                  ? "bg-zinc-700 text-white"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              <List size={16} className="mx-auto" />
-            </button>
-
-            <button
-              onClick={() => setViewMode("calendar")}
-              title="Vista calendario"
-              className={`flex-1 sm:flex-none p-2 rounded-lg transition-colors cursor-pointer ${
-                viewMode === "calendar"
-                  ? "bg-zinc-700 text-white"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              <CalendarDays size={16} className="mx-auto" />
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -378,7 +455,7 @@ export default function GigsPage() {
 
       {viewMode === "calendar" && !loading && (
         <CalendarView
-          gigs={gigs}
+          gigs={bandFilteredGigs}
           gigFilter={gigFilter}
           conflictingIds={conflictingIds}
           onEditGig={openEdit}

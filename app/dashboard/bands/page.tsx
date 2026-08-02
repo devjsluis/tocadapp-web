@@ -67,6 +67,10 @@ export default function BandsPage() {
     members: Member[];
   } | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [bandToDelete, setBandToDelete] = useState<Band | null>(null);
+  const [deletingBand, setDeletingBand] = useState(false);
+  const [bandToLeave, setBandToLeave] = useState<Band | null>(null);
+  const [leavingBand, setLeavingBand] = useState(false);
 
   const fetchBands = async () => {
     try {
@@ -115,26 +119,45 @@ export default function BandsPage() {
     }
   };
 
-  const handleDelete = async (band: Band) => {
-    if (!confirm(`¿Eliminar la banda "${band.name}"? Esto es irreversible.`))
-      return;
+  const handleDelete = async () => {
+    if (!bandToDelete || deletingBand) return;
+
+    setDeletingBand(true);
+
     try {
-      await api.delete(`/bands/${band.id}`);
-      setBands((prev) => prev.filter((b) => b.id !== band.id));
+      await api.delete(`/bands/${bandToDelete.id}`);
+
+      setBands((prev) => prev.filter((band) => band.id !== bandToDelete.id));
+
       toast.success("Banda eliminada");
+      setBandToDelete(null);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Error al eliminar");
+      toast.error(
+        err.response?.data?.error || "No fue posible eliminar la banda",
+      );
+    } finally {
+      setDeletingBand(false);
     }
   };
 
-  const handleLeave = async (band: Band) => {
-    if (!confirm(`¿Salir de la banda "${band.name}"?`)) return;
+  const handleLeave = async () => {
+    if (!bandToLeave || leavingBand) return;
+
+    setLeavingBand(true);
+
     try {
-      await api.delete(`/bands/${band.id}/leave`);
-      setBands((prev) => prev.filter((b) => b.id !== band.id));
-      toast.success("Saliste de la banda");
+      await api.delete(`/bands/${bandToLeave.id}/leave`);
+
+      setBands((prev) => prev.filter((band) => band.id !== bandToLeave.id));
+
+      toast.success(`Saliste de ${bandToLeave.name}`);
+      setBandToLeave(null);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Error al salir");
+      toast.error(
+        err.response?.data?.error || "No fue posible salir de la banda",
+      );
+    } finally {
+      setLeavingBand(false);
     }
   };
 
@@ -186,38 +209,50 @@ export default function BandsPage() {
   const joinedBands = bands.filter((b) => !b.is_owner);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="mx-auto max-w-6xl px-1 sm:px-0">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8 border-b border-zinc-800/50 pb-6">
+      <div className="mb-8 flex flex-col gap-5 border-b border-zinc-800/50 pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-linear-to-r from-white to-zinc-500 bg-clip-text text-transparent">
+          <h1 className="bg-linear-to-r from-white to-zinc-500 bg-clip-text text-2xl font-bold text-transparent sm:text-3xl">
             Bandas
           </h1>
-          <p className="text-zinc-500 mt-1">
+
+          <p className="mt-1 text-sm text-zinc-500">
             Crea tu banda o únete a una con un código
           </p>
         </div>
-        <div className="flex gap-3">
+
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
           <Button
             onClick={() => setShowJoinForm(true)}
-            variant="ghost"
-            className="border border-zinc-700 hover:bg-zinc-800 cursor-pointer"
+            variant="outline"
+            className="h-11 w-full cursor-pointer border-zinc-700 bg-transparent px-3 text-white hover:border-purple-500 hover:bg-purple-500/10 hover:text-purple-300 sm:w-auto"
           >
-            <Hash size={16} className="mr-1" /> Unirme con código
+            <Hash size={16} className="shrink-0 sm:mr-1" />
+
+            <span className="hidden sm:inline">Unirme con código</span>
+            <span className="sm:hidden">Unirme</span>
           </Button>
+
           <Button
             onClick={() => setShowCreateForm(true)}
-            className="bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-500/20 cursor-pointer"
+            className="h-11 w-full cursor-pointer bg-purple-600 px-3 text-white shadow-lg shadow-purple-500/20 hover:bg-purple-700 sm:w-auto"
           >
-            <Plus size={18} className="mr-1" /> Nueva Banda
+            <Plus size={18} className="shrink-0 sm:mr-1" />
+
+            <span className="hidden sm:inline">Nueva Banda</span>
+            <span className="sm:hidden">Crear banda</span>
           </Button>
         </div>
       </div>
 
       {/* Modal crear */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-full max-w-md relative">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
+          <div className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-zinc-800 bg-zinc-900 p-5 shadow-2xl sm:max-w-md sm:rounded-2xl sm:p-6">
+            <div className="mb-3 flex justify-center sm:hidden">
+              <div className="h-1 w-10 rounded-full bg-zinc-700" />
+            </div>
             <button
               onClick={() => setShowCreateForm(false)}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"
@@ -263,8 +298,11 @@ export default function BandsPage() {
 
       {/* Modal unirse */}
       {showJoinForm && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-full max-w-sm relative">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
+          <div className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-zinc-800 bg-zinc-900 p-5 shadow-2xl sm:max-w-md sm:rounded-2xl sm:p-6">
+            <div className="mb-3 flex justify-center sm:hidden">
+              <div className="h-1 w-10 rounded-full bg-zinc-700" />
+            </div>
             <button
               onClick={() => setShowJoinForm(false)}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"
@@ -301,21 +339,23 @@ export default function BandsPage() {
 
       {/* Modal miembros */}
       {membersModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-full max-w-md relative">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
+          <div className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-zinc-800 bg-zinc-900 p-5 shadow-2xl sm:max-w-md sm:rounded-2xl sm:p-6">
+            <div className="mb-3 flex justify-center sm:hidden">
+              <div className="h-1 w-10 rounded-full bg-zinc-700" />
+            </div>
             <button
               onClick={() => setMembersModal(null)}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"
             >
               <X size={20} />
             </button>
-            <h2 className="text-xl font-bold mb-1">
-              {membersModal.band.name}
-            </h2>
+            <h2 className="text-xl font-bold mb-1">{membersModal.band.name}</h2>
             <p className="text-zinc-500 text-sm mb-1">Integrantes</p>
             {membersModal.band.is_owner && (
               <p className="text-[11px] text-zinc-600 mb-5">
-                Activa el permiso de un músico para que pueda agregar tocadas de banda.
+                Activa el permiso de un músico para que pueda agregar tocadas de
+                banda.
               </p>
             )}
             {!membersModal.band.is_owner && <div className="mb-5" />}
@@ -345,7 +385,9 @@ export default function BandsPage() {
                         <p className="text-sm font-semibold">
                           {m.name} {m.last_name}
                         </p>
-                        <p className="text-xs text-zinc-500 truncate">{m.email}</p>
+                        <p className="text-xs text-zinc-500 truncate">
+                          {m.email}
+                        </p>
                       </div>
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase shrink-0 ${
@@ -373,15 +415,15 @@ export default function BandsPage() {
                             )
                           }
                           title={
-                            m.can_create_gigs
-                              ? "Quitar permiso"
-                              : "Dar permiso"
+                            m.can_create_gigs ? "Quitar permiso" : "Dar permiso"
                           }
                           className="cursor-pointer shrink-0"
                         >
                           <div
                             className={`relative w-9 h-5 rounded-full transition-colors ${
-                              m.can_create_gigs ? "bg-purple-500" : "bg-zinc-700"
+                              m.can_create_gigs
+                                ? "bg-purple-500"
+                                : "bg-zinc-700"
                             }`}
                           >
                             <span
@@ -399,6 +441,200 @@ export default function BandsPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {bandToDelete && (
+        <div
+          className="
+      fixed inset-0 z-50 flex items-end justify-center
+      bg-black/80 backdrop-blur-sm
+      sm:items-center sm:p-4
+    "
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-band-title"
+          onClick={() => {
+            if (!deletingBand) setBandToDelete(null);
+          }}
+        >
+          <div
+            className="
+        relative w-full rounded-t-3xl border border-zinc-800
+        bg-zinc-950 p-5 shadow-2xl
+        sm:max-w-md sm:rounded-2xl sm:p-6
+      "
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex justify-center sm:hidden">
+              <div className="h-1 w-10 rounded-full bg-zinc-700" />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setBandToDelete(null)}
+              disabled={deletingBand}
+              className="
+          absolute top-4 right-4 flex h-9 w-9 cursor-pointer
+          items-center justify-center rounded-full text-zinc-500
+          transition-colors hover:bg-zinc-800 hover:text-white
+          disabled:cursor-not-allowed disabled:opacity-50
+        "
+              aria-label="Cerrar confirmación"
+            >
+              <X size={19} />
+            </button>
+
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10">
+              <Trash2 size={22} className="text-red-400" />
+            </div>
+
+            <h2
+              id="delete-band-title"
+              className="pr-10 text-xl font-bold text-white"
+            >
+              ¿Eliminar esta banda?
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              Vas a eliminar permanentemente{" "}
+              <strong className="font-semibold text-white">
+                {bandToDelete.name}
+              </strong>
+              .
+            </p>
+
+            <div className="mt-4 rounded-xl border border-red-500/15 bg-red-500/5 p-3">
+              <p className="text-xs leading-5 text-red-300/80">
+                Esta acción es irreversible. También podría afectar la
+                información asociada a la banda, según el comportamiento
+                configurado en el servidor.
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={deletingBand}
+                onClick={() => setBandToDelete(null)}
+                className="h-11 cursor-pointer text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              >
+                Cancelar
+              </Button>
+
+              <Button
+                type="button"
+                disabled={deletingBand}
+                onClick={() => void handleDelete()}
+                className="
+            h-11 cursor-pointer bg-red-600 font-bold text-white
+            hover:bg-red-700 disabled:cursor-not-allowed
+          "
+              >
+                <Trash2 size={16} />
+
+                {deletingBand ? "Eliminando..." : "Eliminar banda"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bandToLeave && (
+        <div
+          className="
+      fixed inset-0 z-50 flex items-end justify-center
+      bg-black/80 backdrop-blur-sm
+      sm:items-center sm:p-4
+    "
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="leave-band-title"
+          onClick={() => {
+            if (!leavingBand) setBandToLeave(null);
+          }}
+        >
+          <div
+            className="
+        relative w-full rounded-t-3xl border border-zinc-800
+        bg-zinc-950 p-5 shadow-2xl
+        sm:max-w-md sm:rounded-2xl sm:p-6
+      "
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex justify-center sm:hidden">
+              <div className="h-1 w-10 rounded-full bg-zinc-700" />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setBandToLeave(null)}
+              disabled={leavingBand}
+              className="
+          absolute top-4 right-4 flex h-9 w-9 cursor-pointer
+          items-center justify-center rounded-full text-zinc-500
+          transition-colors hover:bg-zinc-800 hover:text-white
+          disabled:cursor-not-allowed disabled:opacity-50
+        "
+              aria-label="Cerrar confirmación"
+            >
+              <X size={19} />
+            </button>
+
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500/10">
+              <LogOut size={22} className="text-orange-400" />
+            </div>
+
+            <h2
+              id="leave-band-title"
+              className="pr-10 text-xl font-bold text-white"
+            >
+              ¿Salir de esta banda?
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              Dejarás de formar parte de{" "}
+              <strong className="font-semibold text-white">
+                {bandToLeave.name}
+              </strong>
+              .
+            </p>
+
+            <div className="mt-4 rounded-xl border border-orange-500/15 bg-orange-500/5 p-3">
+              <p className="text-xs leading-5 text-orange-200/80">
+                Ya no podrás ver las nuevas tocadas de esta banda ni acceder a
+                su información como integrante. Podrás volver a unirte si
+                recibes otro código de invitación.
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={leavingBand}
+                onClick={() => setBandToLeave(null)}
+                className="h-11 cursor-pointer text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              >
+                Cancelar
+              </Button>
+
+              <Button
+                type="button"
+                disabled={leavingBand}
+                onClick={() => void handleLeave()}
+                className="
+            h-11 cursor-pointer bg-orange-600 font-bold text-white
+            hover:bg-orange-700 disabled:cursor-not-allowed
+          "
+              >
+                <LogOut size={16} />
+
+                {leavingBand ? "Saliendo..." : "Salir de la banda"}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -428,7 +664,7 @@ export default function BandsPage() {
               Mis Bandas
             </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {loading
               ? Array.from({ length: 3 }).map((_, i) => (
                   <BandSkeleton key={i} />
@@ -487,11 +723,18 @@ export default function BandsPage() {
                         {band.member_count === 1 ? "integrante" : "integrantes"}
                       </button>
                       <button
-                        onClick={() => handleDelete(band)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-600 hover:text-red-400 p-1 cursor-pointer"
+                        type="button"
+                        onClick={() => setBandToDelete(band)}
+                        className="
+    flex cursor-pointer items-center gap-1 rounded-lg
+    px-2 py-1 text-xs text-zinc-600
+    transition-colors hover:bg-red-500/10 hover:text-red-400
+    sm:opacity-0 sm:group-hover:opacity-100
+  "
                         title="Eliminar banda"
                       >
                         <Trash2 size={15} />
+                        <span className="sm:hidden">Eliminar</span>
                       </button>
                     </div>
                   </div>
@@ -509,7 +752,7 @@ export default function BandsPage() {
               Bandas en las que participo
             </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {joinedBands.map((band) => (
               <div
                 key={band.id}
@@ -545,11 +788,18 @@ export default function BandsPage() {
                     {band.member_count === 1 ? "integrante" : "integrantes"}
                   </button>
                   <button
-                    onClick={() => handleLeave(band)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-600 hover:text-red-400 flex items-center gap-1 text-xs cursor-pointer"
+                    type="button"
+                    onClick={() => setBandToLeave(band)}
+                    className="
+    flex cursor-pointer items-center gap-1 rounded-lg
+    px-2 py-1 text-xs text-zinc-600
+    transition-colors hover:bg-red-500/10 hover:text-red-400
+    sm:opacity-0 sm:group-hover:opacity-100
+  "
                     title="Salir de la banda"
                   >
-                    <LogOut size={13} /> Salir
+                    <LogOut size={13} />
+                    Salir
                   </button>
                 </div>
               </div>
