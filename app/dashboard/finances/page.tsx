@@ -818,70 +818,89 @@ export default function FinancesPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full table-fixed text-sm">
                     <thead>
-                      <tr className="text-zinc-600 text-[11px] uppercase border-b border-zinc-800 bg-zinc-900/30">
-                        <th className="px-5 py-3 text-left font-semibold">
+                      <tr className="border-b border-zinc-800 bg-zinc-900/30 text-[11px] uppercase text-zinc-600">
+                        <th className="w-[42%] px-3 py-3 text-left font-semibold sm:w-auto sm:px-5">
                           Evento
                         </th>
-                        <th className="px-5 py-3 text-left font-semibold hidden md:table-cell">
+
+                        <th className="hidden px-5 py-3 text-left font-semibold lg:table-cell">
                           Lugar
                         </th>
-                        <th className="px-5 py-3 text-left font-semibold">
+
+                        <th className="w-[30%] px-3 py-3 text-left font-semibold sm:w-auto sm:px-5">
                           Fecha
                         </th>
-                        <th className="px-5 py-3 text-right font-semibold hidden sm:table-cell">
+
+                        <th className="hidden px-5 py-3 text-right font-semibold sm:table-cell">
                           Horas
                         </th>
-                        <th className="px-5 py-3 text-right font-semibold">
+
+                        <th className="w-[28%] px-3 py-3 text-right font-semibold sm:w-auto sm:px-5">
                           Cobrado
                         </th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {tableGigs.map((gig) => {
                         const isPast = parseLocalDate(gig.date) < today;
                         const ec = isPast ? effectiveCollected(gig) : null;
+
                         return (
                           <tr
                             key={gig.id}
-                            className="border-b border-zinc-800/40 hover:bg-zinc-800/20 transition-colors last:border-0"
+                            className="border-b border-zinc-800/40 transition-colors last:border-0 hover:bg-zinc-800/20"
                           >
-                            <td className="px-5 py-3 font-medium">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-zinc-200">
+                            <td className="px-3 py-3 font-medium sm:px-5">
+                              <div className="min-w-0">
+                                <span className="block truncate text-zinc-200">
                                   {gig.title}
                                 </span>
+
                                 {gig.band_name && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold shrink-0">
+                                  <span className="mt-1 inline-block max-w-full truncate rounded-full border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-bold text-blue-400">
                                     {gig.band_name}
                                   </span>
                                 )}
+
+                                <span className="mt-1 flex items-center gap-1 truncate text-[11px] text-zinc-600 lg:hidden">
+                                  <MapPin size={10} className="shrink-0" />
+                                  {gig.place}
+                                </span>
                               </div>
                             </td>
-                            <td className="px-5 py-3 text-zinc-500 hidden md:table-cell">
-                              <span className="flex items-center gap-1">
-                                <MapPin size={11} /> {gig.place}
+
+                            <td className="hidden px-5 py-3 text-zinc-500 lg:table-cell">
+                              <span className="flex min-w-0 items-center gap-1">
+                                <MapPin size={11} className="shrink-0" />
+                                <span className="truncate">{gig.place}</span>
                               </span>
                             </td>
+
                             <td
-                              className="px-5 py-3 text-zinc-500 whitespace-nowrap capitalize"
+                              className="px-3 py-3 text-zinc-500 capitalize sm:px-5"
                               suppressHydrationWarning
                             >
-                              {fmtDate(gig.date)}
+                              <span className="whitespace-nowrap">
+                                {fmtDate(gig.date)}
+                              </span>
                             </td>
-                            <td className="px-5 py-3 text-right text-zinc-500 hidden sm:table-cell">
+
+                            <td className="hidden px-5 py-3 text-right text-zinc-500 sm:table-cell">
                               {Number(gig.hours).toLocaleString("en-US")}
                             </td>
-                            <td className="px-5 py-3 text-right font-bold whitespace-nowrap">
+
+                            <td className="px-3 py-3 text-right font-bold whitespace-nowrap sm:px-5">
                               {!isPast ? (
-                                <span className="text-zinc-700 text-xs">—</span>
+                                <span className="text-xs text-zinc-700">—</span>
                               ) : ec !== null ? (
                                 <span className="text-green-400">
                                   ${fmt(ec)}
                                 </span>
                               ) : (
-                                <span className="text-zinc-700 text-xs italic">
+                                <span className="text-xs italic text-zinc-700">
                                   Sin registrar
                                 </span>
                               )}
@@ -890,24 +909,45 @@ export default function FinancesPage() {
                         );
                       })}
                     </tbody>
+
                     <tfoot>
                       <tr className="bg-zinc-900/40">
+                        {/* Menos de 640 px: Evento + Fecha */}
                         <td
-                          className="px-5 py-3.5 font-bold text-zinc-300"
                           colSpan={2}
+                          className="px-3 py-3.5 font-bold text-zinc-300 sm:hidden"
                         >
                           Total
                         </td>
-                        <td className="px-5 py-3.5 text-right text-zinc-500 hidden sm:table-cell">
+
+                        {/* De 640 px a 1023 px: Evento + Fecha */}
+                        <td
+                          colSpan={2}
+                          className="hidden px-5 py-3.5 font-bold text-zinc-300 sm:table-cell lg:hidden"
+                        >
+                          Total
+                        </td>
+
+                        {/* Desde 1024 px: Evento + Lugar + Fecha */}
+                        <td
+                          colSpan={3}
+                          className="hidden px-5 py-3.5 font-bold text-zinc-300 lg:table-cell"
+                        >
+                          Total
+                        </td>
+
+                        <td className="hidden px-5 py-3.5 text-right text-zinc-500 sm:table-cell">
                           {tableHours.toLocaleString("en-US")} hrs
                         </td>
-                        <td className="px-5 py-3.5 text-right font-bold text-green-400">
+
+                        <td className="px-3 py-3.5 text-right font-bold whitespace-nowrap text-green-400 sm:px-5">
                           $
                           {fmt(
                             tableGigs
-                              .filter((g) => parseLocalDate(g.date) < today)
+                              .filter((gig) => parseLocalDate(gig.date) < today)
                               .reduce(
-                                (acc, g) => acc + (effectiveCollected(g) ?? 0),
+                                (total, gig) =>
+                                  total + (effectiveCollected(gig) ?? 0),
                                 0,
                               ),
                           )}
