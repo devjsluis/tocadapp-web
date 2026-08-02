@@ -219,7 +219,11 @@ export default function DashboardPage() {
           value={nextGig ? nextGig.title : "—"}
           sub={
             nextGig
-              ? fmtDate(nextGig.date, { day: "numeric", month: "short", year: "numeric" })
+              ? fmtDate(nextGig.date, {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })
               : "Sin eventos"
           }
           color="yellow"
@@ -241,9 +245,9 @@ export default function DashboardPage() {
             </span>
           </div>
           {loading ? (
-            <div className="h-[180px] bg-zinc-800/50 rounded-xl animate-pulse" />
+            <div className="h-45 bg-zinc-800/50 rounded-xl animate-pulse" />
           ) : pastGigs.length === 0 ? (
-            <div className="h-[180px] flex items-center justify-center text-zinc-700 text-sm">
+            <div className="h-45 flex items-center justify-center text-zinc-700 text-sm">
               Sin datos aún
             </div>
           ) : (
@@ -273,7 +277,10 @@ export default function DashboardPage() {
                     v === 0 ? "" : `$${(v / 1000).toFixed(0)}k`
                   }
                 />
-                <Tooltip content={<ChartTooltip />} cursor={{ fill: "#ffffff06" }} />
+                <Tooltip
+                  content={<ChartTooltip />}
+                  cursor={{ fill: "#ffffff06" }}
+                />
                 <Bar dataKey="total" fill="#a855f7" radius={[5, 5, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -378,7 +385,9 @@ export default function DashboardPage() {
                         {d.getDate()}
                       </span>
                       <span className="text-[9px] text-blue-400/60 uppercase">
-                        {d.toLocaleDateString("es-MX", { month: "short" }).replace(".", "")}
+                        {d
+                          .toLocaleDateString("es-MX", { month: "short" })
+                          .replace(".", "")}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -395,8 +404,7 @@ export default function DashboardPage() {
                       </div>
                       <p className="text-xs text-zinc-600 flex items-center gap-1 mt-0.5">
                         <Clock size={10} />
-                        {String(gig.time).slice(0, 5)} ·{" "}
-                        <MapPin size={10} />
+                        {String(gig.time).slice(0, 5)} · <MapPin size={10} />
                         {gig.place}
                       </p>
                     </div>
@@ -460,7 +468,9 @@ function StatCard({
 }: StatCardProps) {
   return (
     <div className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl hover:border-zinc-700 transition-colors">
-      <div className={`w-8 h-8 rounded-lg ${colorMap[color]} flex items-center justify-center mb-3`}>
+      <div
+        className={`w-8 h-8 rounded-lg ${colorMap[color]} flex items-center justify-center mb-3`}
+      >
         {icon}
       </div>
       <p className="text-zinc-500 text-xs font-medium">{title}</p>

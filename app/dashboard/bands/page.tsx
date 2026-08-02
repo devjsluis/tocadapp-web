@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import axios from "axios";
 import { api } from "@/lib/axios";
 import {
   Plus,
@@ -38,6 +39,22 @@ interface Member {
   role: string;
   joined_at: string;
   can_create_gigs: boolean;
+}
+
+type ApiErrorResponse = {
+  error?: string;
+};
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+    return error.response?.data?.error || fallback;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
 }
 
 const BandSkeleton = () => (
@@ -96,8 +113,8 @@ export default function BandsPage() {
       setShowCreateForm(false);
       setCreateData({ name: "", description: "" });
       toast.success("Banda creada");
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Error al crear la banda");
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "Error al crear la banda"));
     } finally {
       setSaving(false);
     }
@@ -112,8 +129,8 @@ export default function BandsPage() {
       setJoinCode("");
       toast.success("Te uniste a la banda");
       fetchBands();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Código inválido");
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "Código inválido"));
     } finally {
       setSaving(false);
     }
@@ -131,9 +148,9 @@ export default function BandsPage() {
 
       toast.success("Banda eliminada");
       setBandToDelete(null);
-    } catch (err: any) {
+    } catch (error: unknown) {
       toast.error(
-        err.response?.data?.error || "No fue posible eliminar la banda",
+        getApiErrorMessage(error, "No fue posible eliminar la banda"),
       );
     } finally {
       setDeletingBand(false);
@@ -152,9 +169,9 @@ export default function BandsPage() {
 
       toast.success(`Saliste de ${bandToLeave.name}`);
       setBandToLeave(null);
-    } catch (err: any) {
+    } catch (error: unknown) {
       toast.error(
-        err.response?.data?.error || "No fue posible salir de la banda",
+        getApiErrorMessage(error, "No fue posible salir de la banda"),
       );
     } finally {
       setLeavingBand(false);
@@ -187,8 +204,8 @@ export default function BandsPage() {
         };
       });
       toast.success(!current ? "Permiso otorgado" : "Permiso removido");
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Error al actualizar permisos");
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "Error al actualizar permisos"));
     }
   };
 
