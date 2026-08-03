@@ -2,6 +2,10 @@ export interface Gig {
   id: string;
   title: string;
   place: string;
+  location_address?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  google_place_id?: string | null;
   date: string;
   time: string;
   amount: number | string;
@@ -19,6 +23,10 @@ export interface Gig {
 export interface GigFormData {
   title: string;
   place: string;
+  location_address: string;
+  latitude: string;
+  longitude: string;
+  google_place_id: string;
   date: string;
   time: string;
   hours: string;
@@ -29,6 +37,10 @@ export interface GigFormData {
 export interface SaveGigPayload {
   title: string;
   place: string;
+  location_address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  google_place_id: string | null;
   date: string;
   time: string;
   hours: string;

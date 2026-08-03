@@ -12,6 +12,10 @@ import { toDateInput, toTimeInput } from "@/features/gigs/utils/gig.utils";
 const emptyForm: GigFormData = {
   title: "",
   place: "",
+  location_address: "",
+  latitude: "",
+  longitude: "",
+  google_place_id: "",
   date: "",
   time: "",
   hours: "",
@@ -40,6 +44,16 @@ export function useGigForm({ onSave }: UseGigFormParams) {
     setFormData({
       title: gig.title,
       place: gig.place,
+      location_address: gig.location_address ?? "",
+      latitude:
+        gig.latitude !== null && gig.latitude !== undefined
+          ? String(gig.latitude)
+          : "",
+      longitude:
+        gig.longitude !== null && gig.longitude !== undefined
+          ? String(gig.longitude)
+          : "",
+      google_place_id: gig.google_place_id ?? "",
       date: toDateInput(gig.date),
       time: toTimeInput(String(gig.time)),
       hours: String(gig.hours),
@@ -70,8 +84,20 @@ export function useGigForm({ onSave }: UseGigFormParams) {
 
     if (saving) return;
 
+    const hasCoordinates =
+      formData.latitude.trim() !== "" && formData.longitude.trim() !== "";
+
     const payload: SaveGigPayload = {
-      ...formData,
+      title: formData.title,
+      place: formData.place,
+      location_address: formData.location_address.trim() || null,
+      latitude: hasCoordinates ? Number(formData.latitude) : null,
+      longitude: hasCoordinates ? Number(formData.longitude) : null,
+      google_place_id: formData.google_place_id.trim() || null,
+      date: formData.date,
+      time: formData.time,
+      hours: formData.hours,
+      notes: formData.notes,
       amount: null,
       band_id: formData.band_id || null,
     };
