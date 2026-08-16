@@ -9,7 +9,7 @@ import { NavbarLanding } from "@/components/customized/NavbarLanding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { authService } from "@/services/auth.service";
+import { authService } from "@/features/auth/services/auth.service";
 import { Eye, EyeOff, CheckCircle, XCircle } from "lucide-react";
 
 function ResetPasswordContent() {
@@ -51,7 +51,8 @@ function ResetPasswordContent() {
       setSuccess(true);
       setTimeout(() => router.push("/login"), 3000);
     } catch (err) {
-      let message = "Error al resetear la contraseña. El enlace puede haber expirado.";
+      let message =
+        "Error al resetear la contraseña. El enlace puede haber expirado.";
       if (axios.isAxiosError(err)) {
         message = err.response?.data?.error || message;
       }
@@ -70,7 +71,9 @@ function ResetPasswordContent() {
             <div className="grid gap-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-10">
               <div className="flex flex-col items-center gap-4">
                 <XCircle className="text-red-500" size={48} />
-                <p className="text-white font-semibold text-lg">Enlace inválido</p>
+                <p className="text-white font-semibold text-lg">
+                  Enlace inválido
+                </p>
                 <p className="text-zinc-400 text-sm">
                   Este enlace no es válido o ha expirado.
                 </p>

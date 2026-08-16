@@ -20,9 +20,11 @@ export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
     const { data } = await api.post<LoginResponse>("/users/login", credentials);
 
-    if (data.token) {
-      tokenStorage.set(data.token);
+    if (!data.token || !data.refreshToken) {
+      throw new Error("La API no devolvió los tokens de autenticación.");
     }
+
+    tokenStorage.setTokens(data.token, data.refreshToken);
 
     return data;
   },
