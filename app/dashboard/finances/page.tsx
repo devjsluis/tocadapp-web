@@ -39,10 +39,18 @@ interface Gig {
 
 type FinancialMovementType = "INCOME" | "EXPENSE";
 
+type MovementScope = "GENERAL" | "BAND" | "GIG";
+
+interface Band {
+  id: number;
+  name: string;
+}
+
 interface FinancialMovement {
   id: string;
   user_id: number;
   gig_id: number | null;
+  band_id: number | null;
   type: FinancialMovementType;
   amount: number | string;
   category: string;
@@ -115,6 +123,7 @@ const Skeleton = ({ className = "" }: { className?: string }) => (
 );
 
 export default function FinancesPage() {
+  const [bands, setBands] = useState<Band[]>([]);
   const [gigs, setGigs] = useState<Gig[]>([]);
   const [movements, setMovements] = useState<FinancialMovement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,19 +145,27 @@ export default function FinancesPage() {
   const [movementDate, setMovementDate] = useState(
     new Date().toISOString().split("T")[0],
   );
+  const [movementScope, setMovementScope] = useState<MovementScope>("GENERAL");
+  const [movementBandId, setMovementBandId] = useState("");
   const [movementGigId, setMovementGigId] = useState("");
   const [savingMovement, setSavingMovement] = useState(false);
   const [editingMovementId, setEditingMovementId] = useState<string | null>(
     null,
   );
+  const [movementToDelete, setMovementToDelete] =
+    useState<FinancialMovement | null>(null);
+
+  const [deletingMovement, setDeletingMovement] = useState(false);
 
   useEffect(() => {
     Promise.all([
       api.get("/gigs"),
+      api.get("/bands"),
       api.get("/financial-movements").catch(() => ({ data: { data: [] } })),
     ])
-      .then(([gigsRes, movementsRes]) => {
+      .then(([gigsRes, bandsRes, movementsRes]) => {
         setGigs(gigsRes.data.data);
+        setBands(bandsRes.data.data);
         setMovements(movementsRes.data.data);
       })
       .catch(console.error)
@@ -331,10 +348,10 @@ export default function FinancesPage() {
     }
 
     if (selectedBand === "personal") {
-      return movement.gig_id !== null && !movement.band_name;
+      return movement.gig_id !== null && movement.band_id === null;
     }
 
-    return movement.gig_id !== null && movement.band_name === selectedBand;
+    return movement.band_name === selectedBand;
   });
 
   // ── Movimientos financieros ──
@@ -461,7 +478,14 @@ export default function FinancesPage() {
       category: movementCategory,
       description: movementDescription || null,
       date: movementDate,
-      gig_id: movementGigId ? Number(movementGigId) : null,
+
+      gig_id:
+        movementScope === "GIG" && movementGigId ? Number(movementGigId) : null,
+
+      band_id:
+        movementScope === "BAND" && movementBandId
+          ? Number(movementBandId)
+          : null,
     };
 
     try {
@@ -479,6 +503,8 @@ export default function FinancesPage() {
       setMovementDescription("");
       setMovementDate(new Date().toISOString().split("T")[0]);
       setMovementGigId("");
+      setMovementBandId("");
+      setMovementScope("GENERAL");
       setMovementType("EXPENSE");
       setMovementCategory(EXPENSE_CATEGORIES[0]);
       setEditingMovementId(null);
@@ -502,17 +528,43 @@ export default function FinancesPage() {
     setMovementCategory(movement.category);
     setMovementDescription(movement.description ?? "");
     setMovementDate(movement.date.split("T")[0]);
-    setMovementGigId(movement.gig_id !== null ? String(movement.gig_id) : "");
+
+    if (movement.gig_id !== null) {
+      setMovementScope("GIG");
+      setMovementGigId(String(movement.gig_id));
+      setMovementBandId("");
+    } else if (movement.band_id !== null) {
+      setMovementScope("BAND");
+      setMovementBandId(String(movement.band_id));
+      setMovementGigId("");
+    } else {
+      setMovementScope("GENERAL");
+      setMovementBandId("");
+      setMovementGigId("");
+    }
+
     setShowMovementForm(true);
   };
 
-  const handleDeleteMovement = async (id: string) => {
-    try {
-      await api.delete(`/financial-movements/${id}`);
+  const handleDeleteMovement = async () => {
+    if (!movementToDelete || deletingMovement) {
+      return;
+    }
 
-      setMovements((prev) => prev.filter((movement) => movement.id !== id));
+    try {
+      setDeletingMovement(true);
+
+      await api.delete(`/financial-movements/${movementToDelete.id}`);
+
+      setMovements((prev) =>
+        prev.filter((movement) => movement.id !== movementToDelete.id),
+      );
+
+      setMovementToDelete(null);
     } catch (error) {
       console.error("Error al eliminar movimiento:", error);
+    } finally {
+      setDeletingMovement(false);
     }
   };
 
@@ -942,6 +994,8 @@ export default function FinancesPage() {
                   setMovementAmount("");
                   setMovementDescription("");
                   setMovementGigId("");
+                  setMovementBandId("");
+                  setMovementScope("GENERAL");
                   setMovementType("EXPENSE");
                   setMovementCategory(EXPENSE_CATEGORIES[0]);
                   setMovementDate(new Date().toISOString().split("T")[0]);
@@ -999,6 +1053,9 @@ export default function FinancesPage() {
                           setMovementAmount("");
                           setMovementDescription("");
                           setMovementGigId("");
+                          setMovementBandId("");
+                          setMovementScope("GENERAL");
+                          setMovementType("EXPENSE");
                         }}
                         className="cursor-pointer text-zinc-600 transition-colors hover:text-white"
                       >
@@ -1103,43 +1160,118 @@ export default function FinancesPage() {
                       </div>
                     </div>
 
-                    {/* Relación con tocada */}
+                    {/* Ámbito del movimiento */}
                     <div>
-                      <label
-                        htmlFor="movement-gig"
-                        className="mb-1.5 block text-xs font-medium text-zinc-500"
-                      >
+                      <p className="mb-2 text-xs font-medium text-zinc-500">
                         Relacionado con
-                      </label>
+                      </p>
 
-                      <select
-                        id="movement-gig"
-                        value={movementGigId}
-                        onChange={(event) =>
-                          setMovementGigId(event.target.value)
-                        }
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-2.5 text-sm text-white outline-none focus:border-purple-500"
-                      >
-                        <option value="">Movimiento externo</option>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(
+                          [
+                            { value: "GENERAL", label: "General" },
+                            { value: "BAND", label: "Banda" },
+                            { value: "GIG", label: "Tocada" },
+                          ] as const
+                        ).map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                              setMovementScope(option.value);
 
-                        {gigs
-                          .slice()
-                          .sort(
-                            (first, second) =>
-                              parseLocalDate(second.date).getTime() -
-                              parseLocalDate(first.date).getTime(),
-                          )
-                          .map((gig) => (
-                            <option key={gig.id} value={gig.id}>
-                              {fmtDate(gig.date)} · {gig.title} · {gig.place}
-                              {gig.band_name ? ` · ${gig.band_name}` : ""}
-                            </option>
-                          ))}
-                      </select>
+                              if (option.value !== "BAND") {
+                                setMovementBandId("");
+                              }
+
+                              if (option.value !== "GIG") {
+                                setMovementGigId("");
+                              }
+                            }}
+                            className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                              movementScope === option.value
+                                ? "border-purple-500/50 bg-purple-500/10 text-purple-400"
+                                : "border-zinc-700 bg-zinc-800 text-zinc-500 hover:text-white"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {movementScope === "BAND" && (
+                        <div className="mt-3">
+                          <label
+                            htmlFor="movement-band"
+                            className="mb-1.5 block text-xs font-medium text-zinc-500"
+                          >
+                            Banda
+                          </label>
+
+                          <select
+                            id="movement-band"
+                            value={movementBandId}
+                            onChange={(event) =>
+                              setMovementBandId(event.target.value)
+                            }
+                            required
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-2.5 text-sm text-white outline-none focus:border-purple-500"
+                          >
+                            <option value="">Selecciona una banda</option>
+
+                            {bands.map((band) => (
+                              <option key={band.id} value={band.id}>
+                                {band.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {movementScope === "GIG" && (
+                        <div className="mt-3">
+                          <label
+                            htmlFor="movement-gig"
+                            className="mb-1.5 block text-xs font-medium text-zinc-500"
+                          >
+                            Tocada
+                          </label>
+
+                          <select
+                            id="movement-gig"
+                            value={movementGigId}
+                            onChange={(event) =>
+                              setMovementGigId(event.target.value)
+                            }
+                            required
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-2.5 text-sm text-white outline-none focus:border-purple-500"
+                          >
+                            <option value="">Selecciona una tocada</option>
+
+                            {gigs
+                              .slice()
+                              .sort(
+                                (first, second) =>
+                                  parseLocalDate(second.date).getTime() -
+                                  parseLocalDate(first.date).getTime(),
+                              )
+                              .map((gig) => (
+                                <option key={gig.id} value={gig.id}>
+                                  {fmtDate(gig.date)} · {gig.title} ·{" "}
+                                  {gig.place}
+                                  {gig.band_name ? ` · ${gig.band_name}` : ""}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
 
                       <p className="mt-1.5 text-[11px] text-zinc-600">
-                        Puedes asociarlo a una tocada o dejarlo como movimiento
-                        externo.
+                        {movementScope === "GENERAL"
+                          ? "Este movimiento contará en tus finanzas generales."
+                          : movementScope === "BAND"
+                            ? "Este movimiento contará para la banda seleccionada."
+                            : "La banda se determinará automáticamente a partir de la tocada."}
                       </p>
                     </div>
 
@@ -1250,6 +1382,7 @@ export default function FinancesPage() {
                           {movement.gig_id ? (
                             <>
                               <span>·</span>
+
                               <span className="text-purple-400/70">
                                 {movement.gig_title ?? "Tocada"}
                                 {movement.gig_place
@@ -1264,10 +1397,17 @@ export default function FinancesPage() {
                                 </>
                               ) : null}
                             </>
+                          ) : movement.band_id ? (
+                            <>
+                              <span>·</span>
+                              <span className="text-blue-400/70">
+                                {movement.band_name ?? "Banda"}
+                              </span>
+                            </>
                           ) : (
                             <>
                               <span>·</span>
-                              <span>Externo</span>
+                              <span>General</span>
                             </>
                           )}
                         </div>
@@ -1293,7 +1433,7 @@ export default function FinancesPage() {
 
                         <button
                           type="button"
-                          onClick={() => void handleDeleteMovement(movement.id)}
+                          onClick={() => setMovementToDelete(movement)}
                           className="cursor-pointer text-zinc-700 transition-colors hover:text-red-400"
                           title="Eliminar movimiento"
                         >
@@ -1581,6 +1721,127 @@ export default function FinancesPage() {
             </div>
           </section>
         </>
+      )}
+
+      {movementToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-movement-title"
+        >
+          <button
+            type="button"
+            aria-label="Cerrar"
+            className="absolute inset-0 cursor-default"
+            onClick={() => {
+              if (!deletingMovement) {
+                setMovementToDelete(null);
+              }
+            }}
+          />
+
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+                <Trash2 size={20} className="text-red-400" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="delete-movement-title"
+                  className="text-lg font-bold text-white"
+                >
+                  Eliminar movimiento
+                </h2>
+
+                <p className="mt-1 text-sm leading-6 text-zinc-500">
+                  Esta acción no se puede deshacer.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={deletingMovement}
+                onClick={() => setMovementToDelete(null)}
+                className="cursor-pointer text-zinc-600 transition-colors hover:text-white disabled:cursor-not-allowed"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-zinc-200">
+                    {movementToDelete.category}
+                  </p>
+
+                  {movementToDelete.description ? (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {movementToDelete.description}
+                    </p>
+                  ) : null}
+                </div>
+
+                <p
+                  className={`shrink-0 text-base font-bold ${
+                    movementToDelete.type === "INCOME"
+                      ? "text-green-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {movementToDelete.type === "INCOME" ? "+" : "−"}$
+                  {fmt(Number(movementToDelete.amount))}
+                </p>
+              </div>
+
+              <div className="mt-3 border-t border-zinc-800 pt-3 text-xs text-zinc-600">
+                <p>{fmtDate(movementToDelete.date)}</p>
+
+                <p className="mt-1">
+                  {movementToDelete.gig_id
+                    ? [
+                        movementToDelete.gig_title,
+                        movementToDelete.gig_place,
+                        movementToDelete.band_name,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                    : "Movimiento externo"}
+                </p>
+              </div>
+            </div>
+
+            {movementToDelete.gig_id ? (
+              <p className="mt-4 text-xs leading-5 text-zinc-600">
+                Sólo se eliminará este movimiento financiero. La tocada
+                relacionada no será eliminada.
+              </p>
+            ) : null}
+
+            <div className="mt-6 flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={deletingMovement}
+                onClick={() => setMovementToDelete(null)}
+                className="flex-1 border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-900 hover:text-white"
+              >
+                Cancelar
+              </Button>
+
+              <Button
+                type="button"
+                disabled={deletingMovement}
+                onClick={() => void handleDeleteMovement()}
+                className="flex-1 bg-red-600 font-bold text-white hover:bg-red-500"
+              >
+                {deletingMovement ? "Eliminando..." : "Eliminar"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
