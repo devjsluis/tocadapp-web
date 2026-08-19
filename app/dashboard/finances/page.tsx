@@ -8,16 +8,14 @@ import {
   TrendingDown,
   Clock,
   BarChart3,
-  Music,
   MapPin,
   Hourglass,
   Banknote,
   Star,
   Users2,
-  AlertCircle,
-  HelpCircle,
   Wallet,
   ShoppingBag,
+  Pencil,
   Plus,
   Trash2,
   X,
@@ -39,12 +37,22 @@ interface Gig {
   collected_amount?: number | null;
 }
 
-interface Expense {
+type FinancialMovementType = "INCOME" | "EXPENSE";
+
+interface FinancialMovement {
   id: string;
+  user_id: number;
+  gig_id: number | null;
+  type: FinancialMovementType;
   amount: number | string;
   category: string;
   description?: string | null;
   date: string;
+
+  gig_title?: string | null;
+  gig_date?: string | null;
+  gig_place?: string | null;
+  band_name?: string | null;
 }
 
 type TableTab = "pasadas" | "proximas" | "todas";
@@ -60,6 +68,15 @@ const EXPENSE_CATEGORIES = [
   "Reparación",
   "Transporte",
   "Equipo",
+  "Otro",
+];
+
+const INCOME_CATEGORIES = [
+  "Propina",
+  "Ensayo",
+  "Partitura",
+  "Clase",
+  "Grabación",
   "Otro",
 ];
 
@@ -99,7 +116,7 @@ const Skeleton = ({ className = "" }: { className?: string }) => (
 
 export default function FinancesPage() {
   const [gigs, setGigs] = useState<Gig[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [movements, setMovements] = useState<FinancialMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TableTab>("pasadas");
   const [period, setPeriod] = useState<FinancePeriod>("all");
@@ -107,24 +124,32 @@ export default function FinancesPage() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
 
-  // Expense form state
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [expAmount, setExpAmount] = useState("");
-  const [expCategory, setExpCategory] = useState(EXPENSE_CATEGORIES[0]);
-  const [expDescription, setExpDescription] = useState("");
-  const [expDate, setExpDate] = useState(
+  // Financial movement form state
+  const [showMovementForm, setShowMovementForm] = useState(false);
+  const [movementType, setMovementType] =
+    useState<FinancialMovementType>("EXPENSE");
+  const [movementAmount, setMovementAmount] = useState("");
+  const [movementCategory, setMovementCategory] = useState(
+    EXPENSE_CATEGORIES[0],
+  );
+  const [movementDescription, setMovementDescription] = useState("");
+  const [movementDate, setMovementDate] = useState(
     new Date().toISOString().split("T")[0],
   );
-  const [savingExpense, setSavingExpense] = useState(false);
+  const [movementGigId, setMovementGigId] = useState("");
+  const [savingMovement, setSavingMovement] = useState(false);
+  const [editingMovementId, setEditingMovementId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     Promise.all([
       api.get("/gigs"),
-      api.get("/expenses").catch(() => ({ data: { data: [] } })),
+      api.get("/financial-movements").catch(() => ({ data: { data: [] } })),
     ])
-      .then(([gigsRes, expensesRes]) => {
+      .then(([gigsRes, movementsRes]) => {
         setGigs(gigsRes.data.data);
-        setExpenses(expensesRes.data.data);
+        setMovements(movementsRes.data.data);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -220,7 +245,6 @@ export default function FinancesPage() {
     );
 
   const pastGigs = allPastGigs.filter(countsInFinances);
-  const futureGigs = allFutureGigs.filter(countsInFinances);
 
   // ── Cobros: única fuente de verdad financiera ──
   const totalCollected = pastGigs.reduce(
@@ -232,7 +256,6 @@ export default function FinancesPage() {
   const paidGigs = pastGigs.filter((g) => (effectiveCollected(g) ?? 0) > 0);
   const paidHours = paidGigs.reduce((acc, g) => acc + Number(g.hours), 0);
   const tarifaReal = paidHours > 0 ? totalCollected / paidHours : 0;
-  const hasCollectedTracking = pastGigs.length > 0;
 
   const earningsByBand = paidGigs.reduce((acc, gig) => {
     const bandName = gig.band_name?.trim() || "Eventos personales";
@@ -257,17 +280,96 @@ export default function FinancesPage() {
       (first, second) => second.total - first.total,
     )[0] ?? null;
 
-  // ── Gastos ──
-  const totalExpenses = expenses.reduce((acc, e) => acc + Number(e.amount), 0);
-  const netIncome = totalCollected - totalExpenses;
+  const filteredMovements = movements.filter((movement) => {
+    const movementDate = parseLocalDate(movement.date);
+
+    let insidePeriod = true;
+
+    if (period === "today") {
+      const start = new Date(today);
+      const end = new Date(today);
+      end.setHours(23, 59, 59, 999);
+
+      insidePeriod = movementDate >= start && movementDate <= end;
+    }
+
+    if (period === "week") {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay());
+
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+
+      insidePeriod = movementDate >= weekStart && movementDate <= weekEnd;
+    }
+
+    if (period === "month") {
+      insidePeriod =
+        movementDate.getMonth() === today.getMonth() &&
+        movementDate.getFullYear() === today.getFullYear();
+    }
+
+    if (period === "year") {
+      insidePeriod = movementDate.getFullYear() === today.getFullYear();
+    }
+
+    if (period === "custom") {
+      if (customStartDate && customEndDate) {
+        const start = parseLocalDate(customStartDate);
+        const end = parseLocalDate(customEndDate);
+        end.setHours(23, 59, 59, 999);
+
+        insidePeriod = movementDate >= start && movementDate <= end;
+      }
+    }
+
+    if (!insidePeriod) return false;
+
+    if (selectedBand === "all") {
+      return true;
+    }
+
+    if (selectedBand === "personal") {
+      return movement.gig_id !== null && !movement.band_name;
+    }
+
+    return movement.gig_id !== null && movement.band_name === selectedBand;
+  });
+
+  // ── Movimientos financieros ──
+  const expenses = filteredMovements.filter(
+    (movement) => movement.type === "EXPENSE",
+  );
+
+  const extraIncomes = filteredMovements.filter(
+    (movement) => movement.type === "INCOME",
+  );
+
+  const totalExpenses = expenses.reduce(
+    (acc, movement) => acc + Number(movement.amount),
+    0,
+  );
+
+  const totalExtraIncome = extraIncomes.reduce(
+    (acc, movement) => acc + Number(movement.amount),
+    0,
+  );
+
+  const totalIncome = totalCollected + totalExtraIncome;
+
+  const netIncome = totalIncome - totalExpenses;
 
   const expensesByCategory = expenses.reduce(
-    (acc, e) => {
-      acc[e.category] = (acc[e.category] ?? 0) + Number(e.amount);
+    (acc, movement) => {
+      acc[movement.category] =
+        (acc[movement.category] ?? 0) + Number(movement.amount);
+
       return acc;
     },
     {} as Record<string, number>,
   );
+
   const topCategory =
     Object.entries(expensesByCategory).sort((a, b) => b[1] - a[1])[0] ?? null;
 
@@ -344,38 +446,73 @@ export default function FinancesPage() {
 
   const tableHours = tableGigs.reduce((acc, g) => acc + Number(g.hours), 0);
 
-  const isEmpty = !loading && gigs.length === 0;
+  const isEmpty = !loading && gigs.length === 0 && movements.length === 0;
 
-  // ── Handlers de gastos ──
-  const handleAddExpense = async (e: React.FormEvent) => {
+  const handleSaveMovement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!expAmount) return;
-    setSavingExpense(true);
+
+    if (!movementAmount) return;
+
+    setSavingMovement(true);
+
+    const payload = {
+      type: movementType,
+      amount: Number(movementAmount),
+      category: movementCategory,
+      description: movementDescription || null,
+      date: movementDate,
+      gig_id: movementGigId ? Number(movementGigId) : null,
+    };
+
     try {
-      const res = await api.post("/expenses", {
-        amount: Number(expAmount),
-        category: expCategory,
-        description: expDescription || null,
-        date: expDate,
-      });
-      setExpenses((prev) => [res.data.data, ...prev]);
-      setExpAmount("");
-      setExpDescription("");
-      setExpDate(new Date().toISOString().split("T")[0]);
-      setShowExpenseForm(false);
+      if (editingMovementId) {
+        await api.put(`/financial-movements/${editingMovementId}`, payload);
+      } else {
+        await api.post("/financial-movements", payload);
+      }
+
+      const movementsRes = await api.get("/financial-movements");
+
+      setMovements(movementsRes.data.data);
+
+      setMovementAmount("");
+      setMovementDescription("");
+      setMovementDate(new Date().toISOString().split("T")[0]);
+      setMovementGigId("");
+      setMovementType("EXPENSE");
+      setMovementCategory(EXPENSE_CATEGORIES[0]);
+      setEditingMovementId(null);
+      setShowMovementForm(false);
     } catch (error) {
-      console.error("Error al guardar gasto:", error);
+      console.error(
+        editingMovementId
+          ? "Error al actualizar movimiento:"
+          : "Error al guardar movimiento:",
+        error,
+      );
     } finally {
-      setSavingExpense(false);
+      setSavingMovement(false);
     }
   };
 
-  const handleDeleteExpense = async (id: string) => {
+  const handleEditMovement = (movement: FinancialMovement) => {
+    setEditingMovementId(movement.id);
+    setMovementType(movement.type);
+    setMovementAmount(String(movement.amount));
+    setMovementCategory(movement.category);
+    setMovementDescription(movement.description ?? "");
+    setMovementDate(movement.date.split("T")[0]);
+    setMovementGigId(movement.gig_id !== null ? String(movement.gig_id) : "");
+    setShowMovementForm(true);
+  };
+
+  const handleDeleteMovement = async (id: string) => {
     try {
-      await api.delete(`/expenses/${id}`);
-      setExpenses((prev) => prev.filter((e) => e.id !== id));
+      await api.delete(`/financial-movements/${id}`);
+
+      setMovements((prev) => prev.filter((movement) => movement.id !== id));
     } catch (error) {
-      console.error("Error al eliminar gasto:", error);
+      console.error("Error al eliminar movimiento:", error);
     }
   };
 
@@ -572,7 +709,7 @@ export default function FinancesPage() {
             </div>
 
             {/* Hero: resultado neto + cobrado + gastos */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Hero neto */}
               <div className="col-span-2 bg-zinc-900 border border-zinc-700 p-5 rounded-2xl hover:border-zinc-600 transition-colors">
                 <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center mb-3">
@@ -593,9 +730,8 @@ export default function FinancesPage() {
                   </h3>
                 )}
                 <p className="text-[11px] text-zinc-600 mt-1.5">
-                  {hasCollectedTracking
-                    ? `$${fmt(totalCollected)} cobrados − $${fmt(totalExpenses)} gastos`
-                    : "Registra cobros para ver tu resultado real"}
+                  ${fmt(totalCollected)} cobrado + ${fmt(totalExtraIncome)}{" "}
+                  extra − ${fmt(totalExpenses)} gastos
                 </p>
               </div>
 
@@ -614,6 +750,29 @@ export default function FinancesPage() {
                 )}
                 <p className="text-[11px] text-zinc-600 mt-1.5">
                   {pastGigs.length} tocadas realizadas
+                </p>
+              </div>
+
+              {/* Ingresos adicionales */}
+              <div className="bg-zinc-900 border border-blue-500/20 p-5 rounded-2xl hover:border-blue-500/40 transition-colors">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center mb-3">
+                  <Plus size={16} className="text-blue-400" />
+                </div>
+
+                <p className="text-zinc-500 text-xs font-medium">
+                  Ingresos extra
+                </p>
+
+                {loading ? (
+                  <div className="h-7 w-28 bg-zinc-800 rounded animate-pulse mt-1.5" />
+                ) : (
+                  <h3 className="text-xl font-bold mt-1 text-blue-400">
+                    +${fmt(totalExtraIncome)}
+                  </h3>
+                )}
+
+                <p className="text-[11px] text-zinc-600 mt-1.5">
+                  {extraIncomes.length} registros
                 </p>
               </div>
 
@@ -761,149 +920,382 @@ export default function FinancesPage() {
             )}
           </section>
 
-          {/* ── Sección: Gastos ── */}
+          {/* ── Sección: Movimientos financieros ── */}
           <section>
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="h-2 w-2 rounded-full bg-purple-500" />
+
                 <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">
-                  Gastos
+                  Movimientos
                 </h2>
+
                 <span className="text-xs text-zinc-700">
-                  · {expenses.length} registros
+                  · {filteredMovements.length} registros
                 </span>
               </div>
+
               <button
-                onClick={() => setShowExpenseForm(true)}
-                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer"
+                type="button"
+                onClick={() => {
+                  setEditingMovementId(null);
+                  setMovementAmount("");
+                  setMovementDescription("");
+                  setMovementGigId("");
+                  setMovementType("EXPENSE");
+                  setMovementCategory(EXPENSE_CATEGORIES[0]);
+                  setMovementDate(new Date().toISOString().split("T")[0]);
+                  setShowMovementForm(true);
+                }}
+                className="flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-white"
               >
                 <Plus size={14} />
-                Agregar gasto
+                Registrar movimiento
               </button>
             </div>
 
-            {expenses.length === 0 && !showExpenseForm ? (
-              <div className="bg-zinc-900/30 border border-zinc-800/50 border-dashed rounded-2xl p-6 text-center">
-                <p className="text-zinc-600 text-sm">
-                  Registra tus gastos para ver tu ingreso real neto.
+            {movements.length === 0 && !showMovementForm ? (
+              <div className="rounded-2xl border border-dashed border-zinc-800/50 bg-zinc-900/30 p-6 text-center">
+                <p className="text-sm text-zinc-600">
+                  Registra ingresos y gastos para conocer tu resultado real.
                 </p>
-                <p className="text-zinc-700 text-xs mt-1">
-                  Baquetas, cañas, reparaciones, transporte…
+
+                <p className="mt-1 text-xs text-zinc-700">
+                  Propinas, ensayos, gasolina, reparaciones, equipo…
                 </p>
+
                 <button
-                  onClick={() => setShowExpenseForm(true)}
-                  className="mt-3 text-xs text-purple-500 hover:text-purple-400 transition-colors cursor-pointer"
+                  type="button"
+                  onClick={() => setShowMovementForm(true)}
+                  className="mt-3 cursor-pointer text-xs text-purple-500 transition-colors hover:text-purple-400"
                 >
-                  + Agregar primer gasto
+                  + Registrar primer movimiento
                 </button>
               </div>
             ) : (
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
-                {/* Form inline */}
-                {showExpenseForm && (
+              <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+                {showMovementForm && (
                   <form
-                    onSubmit={handleAddExpense}
-                    className="p-5 border-b border-zinc-800 space-y-3"
+                    onSubmit={handleSaveMovement}
+                    className="space-y-4 border-b border-zinc-800 p-5"
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm font-semibold text-white">
-                        Nuevo gasto
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          {editingMovementId
+                            ? "Editar movimiento"
+                            : "Nuevo movimiento"}
+                        </p>
+                        <p className="mt-0.5 text-xs text-zinc-600">
+                          Registra dinero que entra o sale.
+                        </p>
+                      </div>
+
                       <button
                         type="button"
-                        onClick={() => setShowExpenseForm(false)}
-                        className="text-zinc-600 hover:text-white cursor-pointer"
+                        onClick={() => {
+                          setShowMovementForm(false);
+                          setEditingMovementId(null);
+                          setMovementAmount("");
+                          setMovementDescription("");
+                          setMovementGigId("");
+                        }}
+                        className="cursor-pointer text-zinc-600 transition-colors hover:text-white"
                       >
                         <X size={16} />
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="number"
-                        placeholder="Monto $"
-                        value={expAmount}
-                        onChange={(e) => setExpAmount(e.target.value)}
-                        className="bg-zinc-800 border border-zinc-700 p-2.5 rounded-lg outline-none focus:border-red-500 text-white placeholder:text-zinc-500 text-sm"
-                        required
-                        min="0"
-                        step="0.01"
-                        autoFocus
-                      />
-                      <select
-                        value={expCategory}
-                        onChange={(e) => setExpCategory(e.target.value)}
-                        className="bg-zinc-800 border border-zinc-700 p-2.5 rounded-lg outline-none focus:border-red-500 text-white text-sm"
+
+                    {/* Tipo */}
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                        Tipo
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMovementType("INCOME");
+                            setMovementCategory(INCOME_CATEGORIES[0]);
+                          }}
+                          className={`rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${
+                            movementType === "INCOME"
+                              ? "border-green-500/50 bg-green-500/10 text-green-400"
+                              : "border-zinc-700 bg-zinc-800 text-zinc-500 hover:text-white"
+                          }`}
+                        >
+                          + Ingreso
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMovementType("EXPENSE");
+                            setMovementCategory(EXPENSE_CATEGORIES[0]);
+                          }}
+                          className={`rounded-xl border px-4 py-3 text-sm font-bold transition-colors ${
+                            movementType === "EXPENSE"
+                              ? "border-red-500/50 bg-red-500/10 text-red-400"
+                              : "border-zinc-700 bg-zinc-800 text-zinc-500 hover:text-white"
+                          }`}
+                        >
+                          − Gasto
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Monto y categoría */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor="movement-amount"
+                          className="mb-1.5 block text-xs font-medium text-zinc-500"
+                        >
+                          Monto
+                        </label>
+
+                        <input
+                          id="movement-amount"
+                          type="number"
+                          placeholder="$0.00"
+                          value={movementAmount}
+                          onChange={(event) =>
+                            setMovementAmount(event.target.value)
+                          }
+                          className={`w-full rounded-lg border bg-zinc-800 p-2.5 text-sm text-white outline-none placeholder:text-zinc-500 ${
+                            movementType === "INCOME"
+                              ? "border-zinc-700 focus:border-green-500"
+                              : "border-zinc-700 focus:border-red-500"
+                          }`}
+                          required
+                          min="0.01"
+                          step="0.01"
+                          autoFocus
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor="movement-category"
+                          className="mb-1.5 block text-xs font-medium text-zinc-500"
+                        >
+                          Categoría
+                        </label>
+
+                        <select
+                          id="movement-category"
+                          value={movementCategory}
+                          onChange={(event) =>
+                            setMovementCategory(event.target.value)
+                          }
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-2.5 text-sm text-white outline-none focus:border-purple-500"
+                        >
+                          {(movementType === "INCOME"
+                            ? INCOME_CATEGORIES
+                            : EXPENSE_CATEGORIES
+                          ).map((category) => (
+                            <option key={category} value={category}>
+                              {category}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Relación con tocada */}
+                    <div>
+                      <label
+                        htmlFor="movement-gig"
+                        className="mb-1.5 block text-xs font-medium text-zinc-500"
                       >
-                        {EXPENSE_CATEGORIES.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
+                        Relacionado con
+                      </label>
+
+                      <select
+                        id="movement-gig"
+                        value={movementGigId}
+                        onChange={(event) =>
+                          setMovementGigId(event.target.value)
+                        }
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-2.5 text-sm text-white outline-none focus:border-purple-500"
+                      >
+                        <option value="">Movimiento externo</option>
+
+                        {gigs
+                          .slice()
+                          .sort(
+                            (first, second) =>
+                              parseLocalDate(second.date).getTime() -
+                              parseLocalDate(first.date).getTime(),
+                          )
+                          .map((gig) => (
+                            <option key={gig.id} value={gig.id}>
+                              {fmtDate(gig.date)} · {gig.title} · {gig.place}
+                              {gig.band_name ? ` · ${gig.band_name}` : ""}
+                            </option>
+                          ))}
                       </select>
+
+                      <p className="mt-1.5 text-[11px] text-zinc-600">
+                        Puedes asociarlo a una tocada o dejarlo como movimiento
+                        externo.
+                      </p>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        placeholder="Descripción (opcional)"
-                        value={expDescription}
-                        onChange={(e) => setExpDescription(e.target.value)}
-                        className="bg-zinc-800 border border-zinc-700 p-2.5 rounded-lg outline-none focus:border-red-500 text-white placeholder:text-zinc-500 text-sm"
-                      />
-                      <input
-                        type="date"
-                        value={expDate}
-                        onChange={(e) => setExpDate(e.target.value)}
-                        className="bg-zinc-800 border border-zinc-700 p-2.5 rounded-lg outline-none focus:border-red-500 text-white text-sm"
-                      />
+
+                    {/* Descripción y fecha */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor="movement-description"
+                          className="mb-1.5 block text-xs font-medium text-zinc-500"
+                        >
+                          Descripción
+                        </label>
+
+                        <input
+                          id="movement-description"
+                          type="text"
+                          placeholder="Opcional"
+                          value={movementDescription}
+                          onChange={(event) =>
+                            setMovementDescription(event.target.value)
+                          }
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-2.5 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-purple-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor="movement-date"
+                          className="mb-1.5 block text-xs font-medium text-zinc-500"
+                        >
+                          Fecha
+                        </label>
+
+                        <input
+                          id="movement-date"
+                          type="date"
+                          value={movementDate}
+                          onChange={(event) =>
+                            setMovementDate(event.target.value)
+                          }
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-2.5 text-sm text-white outline-none focus:border-purple-500"
+                        />
+                      </div>
                     </div>
+
                     <Button
                       type="submit"
-                      disabled={savingExpense || !expAmount}
-                      className="w-full bg-red-600/80 hover:bg-red-600 font-bold cursor-pointer"
+                      disabled={savingMovement || !movementAmount}
+                      className={`w-full cursor-pointer font-bold ${
+                        movementType === "INCOME"
+                          ? "bg-green-600 hover:bg-green-500"
+                          : "bg-red-600/80 hover:bg-red-600"
+                      }`}
                     >
-                      Guardar gasto
+                      {savingMovement
+                        ? "Guardando..."
+                        : editingMovementId
+                          ? "Guardar cambios"
+                          : movementType === "INCOME"
+                            ? "Registrar ingreso"
+                            : "Registrar gasto"}
                     </Button>
                   </form>
                 )}
 
-                {/* Lista de gastos */}
-                {expenses.map((expense, idx) => {
-                  const isLast = idx === expenses.length - 1;
+                {/* Lista */}
+                {filteredMovements.map((movement, index) => {
+                  const isIncome = movement.type === "INCOME";
+                  const isLast = index === movements.length - 1;
+
                   return (
                     <div
-                      key={expense.id}
-                      className={`flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-800/20 transition-colors ${
+                      key={movement.id}
+                      className={`flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-zinc-800/20 ${
                         !isLast ? "border-b border-zinc-800/40" : ""
                       }`}
                     >
-                      <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
-                        <ShoppingBag size={13} className="text-red-400" />
+                      <div
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                          isIncome ? "bg-green-500/10" : "bg-red-500/10"
+                        }`}
+                      >
+                        {isIncome ? (
+                          <TrendingUp size={15} className="text-green-400" />
+                        ) : (
+                          <ShoppingBag size={14} className="text-red-400" />
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="text-sm font-medium text-zinc-300">
-                            {expense.category}
+                            {movement.category}
                           </span>
-                          {expense.description && (
-                            <span className="text-xs text-zinc-600 truncate">
-                              · {expense.description}
+
+                          {movement.description && (
+                            <span className="truncate text-xs text-zinc-600">
+                              · {movement.description}
                             </span>
                           )}
                         </div>
-                        <p
-                          className="text-xs text-zinc-600 mt-0.5"
-                          suppressHydrationWarning
-                        >
-                          {fmtDate(expense.date)}
-                        </p>
+
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-zinc-600">
+                          <span suppressHydrationWarning>
+                            {fmtDate(movement.date)}
+                          </span>
+
+                          {movement.gig_id ? (
+                            <>
+                              <span>·</span>
+                              <span className="text-purple-400/70">
+                                {movement.gig_title ?? "Tocada"}
+                                {movement.gig_place
+                                  ? ` · ${movement.gig_place}`
+                                  : ""}
+                              </span>
+
+                              {movement.band_name ? (
+                                <>
+                                  <span>·</span>
+                                  <span>{movement.band_name}</span>
+                                </>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              <span>·</span>
+                              <span>Externo</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-sm font-bold text-red-400">
-                          −${fmt(Number(expense.amount))}
+
+                      <div className="flex shrink-0 items-center gap-3">
+                        <span
+                          className={`text-sm font-bold ${
+                            isIncome ? "text-green-400" : "text-red-400"
+                          }`}
+                        >
+                          {isIncome ? "+" : "−"}${fmt(Number(movement.amount))}
                         </span>
+
                         <button
-                          onClick={() => handleDeleteExpense(expense.id)}
-                          className="text-zinc-700 hover:text-red-400 transition-colors cursor-pointer"
+                          type="button"
+                          onClick={() => handleEditMovement(movement)}
+                          className="cursor-pointer text-zinc-700 transition-colors hover:text-purple-400"
+                          title="Editar movimiento"
+                        >
+                          <Pencil size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteMovement(movement.id)}
+                          className="cursor-pointer text-zinc-700 transition-colors hover:text-red-400"
+                          title="Eliminar movimiento"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -912,9 +1304,9 @@ export default function FinancesPage() {
                   );
                 })}
 
-                {expenses.length === 0 && showExpenseForm && (
-                  <div className="py-6 text-center text-zinc-700 text-sm">
-                    Aún no hay gastos registrados.
+                {movements.length === 0 && showMovementForm && (
+                  <div className="py-6 text-center text-sm text-zinc-700">
+                    Aún no hay movimientos registrados.
                   </div>
                 )}
               </div>
