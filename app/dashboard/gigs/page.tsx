@@ -52,7 +52,8 @@ export default function GigsPage() {
     onSave: saveGig,
   });
 
-  const [bands, setBands] = useState<Band[]>([]);
+  const [filterBands, setFilterBands] = useState<Band[]>([]);
+  const [creationBands, setCreationBands] = useState<Band[]>([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [gigFilter, setGigFilter] = useState<GigFilter>("all");
@@ -65,10 +66,15 @@ export default function GigsPage() {
 
     const loadBands = async () => {
       try {
-        const availableBands = await bandsService.getAvailableForGigCreation();
+        const allBands = await bandsService.getAll();
 
         if (!cancelled) {
-          setBands(availableBands);
+          setFilterBands(allBands);
+          setCreationBands(
+            allBands.filter(
+              (band) => band.is_owner || band.can_create_gigs,
+            ),
+          );
         }
       } catch (error) {
         console.error("Error al obtener bandas", error);
@@ -84,8 +90,8 @@ export default function GigsPage() {
 
   const availableBandNames = Array.from(
     new Set(
-      gigs
-        .map((gig) => gig.band_name?.trim())
+      filterBands
+        .map((band) => band.name?.trim())
         .filter((bandName): bandName is string => Boolean(bandName)),
     ),
   ).sort((first, second) => first.localeCompare(second, "es"));
@@ -324,7 +330,7 @@ export default function GigsPage() {
       {showForm && (
         <GigFormModal
           formData={formData}
-          bands={bands}
+          bands={creationBands}
           places={availablePlaces}
           isEditing={isEditing}
           saving={saving}
