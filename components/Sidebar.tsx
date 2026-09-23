@@ -65,6 +65,7 @@ export function Sidebar() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLeader, setIsLeader] = useState(false);
+  const [hasPendingBandRequests, setHasPendingBandRequests] = useState(false);
 
   useEffect(() => {
     api
@@ -78,16 +79,50 @@ export function Sidebar() {
   }, []);
 
   useEffect(() => {
-    api
-      .get("/bands")
-      .then(({ data }) => {
-        const hasOwnBand = data.data?.some(
-          (b: { is_owner: boolean }) => b.is_owner,
+    let cancelled = false;
+
+    const loadBandIndicators = async () => {
+      try {
+        const { data } = await api.get("/bands");
+
+        const ownedBands: { id: number | string; is_owner: boolean }[] =
+          (data.data ?? []).filter(
+            (band: { is_owner: boolean }) => band.is_owner,
+          );
+
+        if (cancelled) return;
+
+        setIsLeader(ownedBands.length > 0);
+
+        if (ownedBands.length === 0) {
+          setHasPendingBandRequests(false);
+          return;
+        }
+
+        const responses = await Promise.all(
+          ownedBands.map((band) =>
+            api.get(`/bands/${band.id}/join-requests`),
+          ),
         );
-        setIsLeader(hasOwnBand);
-      })
-      .catch(() => {});
-  }, []);
+
+        if (cancelled) return;
+
+        setHasPendingBandRequests(
+          responses.some(
+            (response) => (response.data.data ?? []).length > 0,
+          ),
+        );
+      } catch {
+        // El indicador es complementario y no debe bloquear la navegación.
+      }
+    };
+
+    void loadBandIndicators();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   const menuItems = [
     ...baseMenuItems,
@@ -112,7 +147,14 @@ export function Sidebar() {
 
         <nav className="flex-1 px-4 space-y-2">
           {menuItems.map((item) => (
-            <NavLink key={item.name} item={item} pathname={pathname} />
+            <NavLink
+              key={item.name}
+              item={item}
+              pathname={pathname}
+              showNotification={
+                item.href === "/dashboard/bands" && hasPendingBandRequests
+              }
+            />
           ))}
         </nav>
 
@@ -142,7 +184,13 @@ export function Sidebar() {
                     : "text-zinc-400",
                 )}
               >
-                <Icon size={24} />
+                <span className="relative">
+                  <Icon size={24} />
+                  {item.href === "/dashboard/bands" &&
+                  hasPendingBandRequests ? (
+                    <span className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full border border-zinc-950 bg-amber-400" />
+                  ) : null}
+                </span>
                 <span className="text-[10px] font-medium">{item.name}</span>
               </Link>
             );
@@ -162,9 +210,14 @@ export function Sidebar() {
 interface NavLinkProps {
   item: MenuItem;
   pathname: string | null;
+  showNotification?: boolean;
 }
 
-function NavLink({ item, pathname }: NavLinkProps) {
+function NavLink({
+  item,
+  pathname,
+  showNotification = false,
+}: NavLinkProps) {
   const Icon = item.icon;
   return (
     <Link
@@ -176,7 +229,12 @@ function NavLink({ item, pathname }: NavLinkProps) {
           : "text-zinc-400 hover:bg-zinc-900 hover:text-white",
       )}
     >
-      <Icon size={20} />
+      <span className="relative">
+        <Icon size={20} />
+        {showNotification ? (
+          <span className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full border border-zinc-950 bg-amber-400" />
+        ) : null}
+      </span>
       <span className="font-medium">{item.name}</span>
     </Link>
   );
