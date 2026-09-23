@@ -14,6 +14,7 @@ import {
   Shield,
   Music,
   Hash,
+  Clock3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -29,6 +30,27 @@ interface Band {
   is_owner: boolean;
   member_count: number;
   created_at: string;
+}
+
+interface BandJoinRequest {
+  id: number;
+  band_id: number;
+  user_id: number;
+  status: "PENDING";
+  created_at: string;
+  name: string;
+  last_name: string;
+  email?: string | null;
+}
+
+interface MyBandJoinRequest {
+  id: number;
+  band_id: number;
+  user_id: number;
+  status: "PENDING";
+  created_at: string;
+  band_name: string;
+  band_created_at: string;
 }
 
 interface Member {
@@ -72,6 +94,10 @@ const BandSkeleton = () => (
 
 export default function BandsPage() {
   const [bands, setBands] = useState<Band[]>([]);
+  const [myJoinRequests, setMyJoinRequests] = useState<MyBandJoinRequest[]>([]);
+  const [pendingRequestsByBand, setPendingRequestsByBand] = useState<
+    Record<string, number>
+  >({});
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showJoinForm, setShowJoinForm] = useState(false);
@@ -82,8 +108,19 @@ export default function BandsPage() {
   const [membersModal, setMembersModal] = useState<{
     band: Band;
     members: Member[];
+    joinRequests: BandJoinRequest[];
   } | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [updatingJoinRequestId, setUpdatingJoinRequestId] = useState<
+    number | null
+  >(null);
+  const [acceptingJoinRequest, setAcceptingJoinRequest] =
+    useState<BandJoinRequest | null>(null);
+  const [acceptJoinedAt, setAcceptJoinedAt] = useState("");
+  const [acceptJoinedAtMode, setAcceptJoinedAtMode] = useState<
+    "now" | "date"
+  >("now");
+  const [savingJoinAcceptance, setSavingJoinAcceptance] = useState(false);
   const [bandToDelete, setBandToDelete] = useState<Band | null>(null);
   const [deletingBand, setDeletingBand] = useState(false);
   const [bandToLeave, setBandToLeave] = useState<Band | null>(null);
@@ -92,7 +129,9 @@ export default function BandsPage() {
   const fetchBands = async () => {
     try {
       const { data } = await api.get("/bands");
-      setBands(data.data);
+      const loadedBands: Band[] = data.data ?? [];
+      setBands(loadedBands);
+      await fetchPendingRequestsByBand(loadedBands);
     } catch {
       toast.error("Error al cargar bandas");
     } finally {
@@ -100,8 +139,39 @@ export default function BandsPage() {
     }
   };
 
+  const fetchPendingRequestsByBand = async (currentBands: Band[]) => {
+    const ownedBands = currentBands.filter((band) => band.is_owner);
+
+    if (ownedBands.length === 0) {
+      setPendingRequestsByBand({});
+      return;
+    }
+
+    try {
+      const responses = await Promise.all(
+        ownedBands.map(async (band) => {
+          const { data } = await api.get(`/bands/${band.id}/join-requests`);
+          return [band.id, (data.data ?? []).length] as const;
+        }),
+      );
+
+      setPendingRequestsByBand(Object.fromEntries(responses));
+    } catch {
+      // El indicador es complementario; no bloqueamos la pantalla si falla.
+    }
+  };
+
+  const fetchMyJoinRequests = async () => {
+    try {
+      const { data } = await api.get("/bands/my-join-requests");
+      setMyJoinRequests(data.data ?? []);
+    } catch {
+      toast.error("Error al cargar solicitudes pendientes");
+    }
+  };
+
   useEffect(() => {
-    fetchBands();
+    void Promise.all([fetchBands(), fetchMyJoinRequests()]);
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -127,8 +197,10 @@ export default function BandsPage() {
       await api.post("/bands/join", { invite_code: joinCode });
       setShowJoinForm(false);
       setJoinCode("");
-      toast.success("Te uniste a la banda");
-      fetchBands();
+      toast.success("Solicitud enviada", {
+        description: "El encargado de la banda debe aceptarla.",
+      });
+      await fetchMyJoinRequests();
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, "Código inválido"));
     } finally {
@@ -211,14 +283,148 @@ export default function BandsPage() {
 
   const openMembers = async (band: Band) => {
     setLoadingMembers(true);
-    setMembersModal({ band, members: [] });
+    setMembersModal({ band, members: [], joinRequests: [] });
+
     try {
-      const { data } = await api.get(`/bands/${band.id}/members`);
-      setMembersModal({ band, members: data.data });
+      const [membersResponse, requestsResponse] = await Promise.all([
+        api.get(`/bands/${band.id}/members`),
+        band.is_owner
+          ? api.get(`/bands/${band.id}/join-requests`)
+          : Promise.resolve(null),
+      ]);
+
+      const loadedJoinRequests = requestsResponse?.data?.data ?? [];
+
+      setMembersModal({
+        band,
+        members: membersResponse.data.data ?? [],
+        joinRequests: loadedJoinRequests,
+      });
+
+      if (band.is_owner) {
+        setPendingRequestsByBand((current) => ({
+          ...current,
+          [band.id]: loadedJoinRequests.length,
+        }));
+      }
     } catch {
-      toast.error("Error al cargar miembros");
+      toast.error("Error al cargar integrantes");
     } finally {
       setLoadingMembers(false);
+    }
+  };
+
+  const handleRejectJoinRequest = async (request: BandJoinRequest) => {
+    if (!membersModal || updatingJoinRequestId !== null) return;
+
+    setUpdatingJoinRequestId(request.id);
+
+    try {
+      await api.post(
+        `/bands/${membersModal.band.id}/join-requests/${request.id}/reject`,
+      );
+
+      setMembersModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              joinRequests: prev.joinRequests.filter(
+                (item) => item.id !== request.id,
+              ),
+            }
+          : prev,
+      );
+
+      setPendingRequestsByBand((current) => ({
+        ...current,
+        [membersModal.band.id]: Math.max(
+          0,
+          (current[membersModal.band.id] ?? 1) - 1,
+        ),
+      }));
+
+      toast.success("Solicitud rechazada");
+    } catch (error: unknown) {
+      toast.error(
+        getApiErrorMessage(error, "No fue posible rechazar la solicitud"),
+      );
+    } finally {
+      setUpdatingJoinRequestId(null);
+    }
+  };
+
+  const openAcceptJoinRequest = (request: BandJoinRequest) => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+
+    setAcceptJoinedAt(`${year}-${month}-${day}`);
+    setAcceptJoinedAtMode("now");
+    setAcceptingJoinRequest(request);
+  };
+
+  const handleAcceptJoinRequest = async () => {
+    if (
+      !membersModal ||
+      !acceptingJoinRequest ||
+      !acceptJoinedAt ||
+      savingJoinAcceptance
+    ) {
+      return;
+    }
+
+    setSavingJoinAcceptance(true);
+
+    try {
+      const joinedAt =
+        acceptJoinedAtMode === "now"
+          ? new Date().toISOString()
+          : new Date(`${acceptJoinedAt}T12:00:00`).toISOString();
+
+      await api.post(
+        `/bands/${membersModal.band.id}/join-requests/${acceptingJoinRequest.id}/accept`,
+        { joined_at: joinedAt },
+      );
+
+      const { data } = await api.get(
+        `/bands/${membersModal.band.id}/members`,
+      );
+
+      setMembersModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              members: data.data ?? [],
+              joinRequests: prev.joinRequests.filter(
+                (item) => item.id !== acceptingJoinRequest.id,
+              ),
+            }
+          : prev,
+      );
+
+      setPendingRequestsByBand((current) => ({
+        ...current,
+        [membersModal.band.id]: Math.max(
+          0,
+          (current[membersModal.band.id] ?? 1) - 1,
+        ),
+      }));
+
+      await fetchBands();
+
+      setAcceptingJoinRequest(null);
+      setAcceptJoinedAt("");
+
+      toast.success("Solicitud aceptada", {
+        description: "El músico ya forma parte de la banda.",
+      });
+    } catch (error: unknown) {
+      toast.error(
+        getApiErrorMessage(error, "No fue posible aceptar la solicitud"),
+      );
+    } finally {
+      setSavingJoinAcceptance(false);
     }
   };
 
@@ -326,9 +532,9 @@ export default function BandsPage() {
             >
               <X size={20} />
             </button>
-            <h2 className="text-xl font-bold mb-2">Unirme a una Banda</h2>
+            <h2 className="text-xl font-bold mb-2">Solicitar unirme a una banda</h2>
             <p className="text-zinc-500 text-sm mb-6">
-              Pídele el código de 6 caracteres al encargado de la banda.
+              Ingresa el código de 6 caracteres. Enviaremos una solicitud al encargado de la banda.
             </p>
             <form onSubmit={handleJoin} className="space-y-4">
               <input
@@ -347,7 +553,7 @@ export default function BandsPage() {
                 disabled={saving || joinCode.length < 6}
                 className="w-full bg-purple-600 hover:bg-purple-700 font-bold py-6 cursor-pointer"
               >
-                {saving ? "Uniéndome..." : "Unirme"}
+                {saving ? "Enviando..." : "Enviar solicitud"}
               </Button>
             </form>
           </div>
@@ -376,6 +582,89 @@ export default function BandsPage() {
               </p>
             )}
             {!membersModal.band.is_owner && <div className="mb-5" />}
+            {membersModal.band.is_owner &&
+              !loadingMembers &&
+              membersModal.joinRequests.length > 0 && (
+                <div className="mb-6">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Clock3 size={13} className="text-amber-400" />
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+                      Solicitudes pendientes
+                    </p>
+                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold text-amber-400">
+                      {membersModal.joinRequests.length}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {membersModal.joinRequests.map((request) => {
+                      const isUpdating =
+                        updatingJoinRequestId === request.id;
+
+                      return (
+                        <div
+                          key={request.id}
+                          className="rounded-xl border border-amber-500/15 bg-amber-500/5 p-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-xs font-bold text-amber-400">
+                              {request.name[0]}
+                              {request.last_name[0]}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-white">
+                                {request.name} {request.last_name}
+                              </p>
+                              {request.email && (
+                                <p className="truncate text-xs text-zinc-500">
+                                  {request.email}
+                                </p>
+                              )}
+                              <p className="mt-0.5 text-[10px] text-zinc-600">
+                                Solicitó unirse el{" "}
+                                {new Date(
+                                  request.created_at,
+                                ).toLocaleDateString("es-MX")}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              disabled={
+                                updatingJoinRequestId !== null ||
+                                savingJoinAcceptance
+                              }
+                              onClick={() =>
+                                void handleRejectJoinRequest(request)
+                              }
+                              className="h-9 cursor-pointer text-xs text-zinc-400 hover:bg-red-500/10 hover:text-red-400"
+                            >
+                              {isUpdating ? "Rechazando..." : "Rechazar"}
+                            </Button>
+
+                            <Button
+                              type="button"
+                              disabled={
+                                updatingJoinRequestId !== null ||
+                                savingJoinAcceptance
+                              }
+                              onClick={() => openAcceptJoinRequest(request)}
+                              className="h-9 cursor-pointer bg-purple-600 text-xs font-semibold text-white hover:bg-purple-700"
+                            >
+                              Aceptar
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
             {loadingMembers ? (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -458,6 +747,172 @@ export default function BandsPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {acceptingJoinRequest && membersModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="accept-member-title"
+          onClick={() => {
+            if (!savingJoinAcceptance) {
+              setAcceptingJoinRequest(null);
+              setAcceptJoinedAt("");
+            }
+          }}
+        >
+          <div
+            className="relative w-full rounded-t-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl sm:max-w-md sm:rounded-2xl sm:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex justify-center sm:hidden">
+              <div className="h-1 w-10 rounded-full bg-zinc-700" />
+            </div>
+
+            <button
+              type="button"
+              disabled={savingJoinAcceptance}
+              onClick={() => {
+                setAcceptingJoinRequest(null);
+                setAcceptJoinedAt("");
+              }}
+              className="absolute top-4 right-4 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Cerrar"
+            >
+              <X size={19} />
+            </button>
+
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-purple-400">
+              Nuevo integrante
+            </p>
+
+            <h2
+              id="accept-member-title"
+              className="pr-10 text-xl font-bold text-white"
+            >
+              {acceptingJoinRequest.name} {acceptingJoinRequest.last_name}
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              Indica desde qué fecha forma parte de la banda. Esta fecha se
+              conservará en su historial.
+            </p>
+
+            <div className="mt-5 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const today = new Date();
+                  const y = today.getFullYear();
+                  const m = String(today.getMonth() + 1).padStart(2, "0");
+                  const d = String(today.getDate()).padStart(2, "0");
+                  setAcceptJoinedAt(`${y}-${m}-${d}`);
+                  setAcceptJoinedAtMode("now");
+                }}
+                className="w-full cursor-pointer rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-left transition-colors hover:border-purple-500/50"
+              >
+                <p className="text-sm font-semibold text-white">Hoy</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Comienza su periodo desde hoy.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  {
+                    setAcceptJoinedAt(
+                      membersModal.band.created_at.slice(0, 10),
+                    );
+                    setAcceptJoinedAtMode("date");
+                  }
+                }
+                className="w-full cursor-pointer rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-left transition-colors hover:border-purple-500/50"
+              >
+                <p className="text-sm font-semibold text-white">
+                  Desde que se registró la banda en TocadApp
+                </p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Usa la fecha de creación del registro de esta banda.
+                </p>
+              </button>
+
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+                <label
+                  htmlFor="member-joined-at"
+                  className="mb-2 block text-sm font-semibold text-white"
+                >
+                  Elegir fecha
+                </label>
+
+                <input
+                  id="member-joined-at"
+                  type="date"
+                  value={acceptJoinedAt}
+                  max={new Date().toLocaleDateString("en-CA")}
+                  onChange={(event) => {
+                    setAcceptJoinedAt(event.target.value);
+                    setAcceptJoinedAtMode("date");
+                  }}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500"
+                />
+              </div>
+            </div>
+
+            {acceptJoinedAt && (
+              <p className="mt-4 text-xs text-zinc-500">
+                {acceptJoinedAtMode === "now" ? (
+                  <>
+                    Fecha seleccionada:{" "}
+                    <strong className="font-semibold text-zinc-300">
+                      Hoy, desde este momento
+                    </strong>
+                  </>
+                ) : (
+                  <>
+                    Fecha seleccionada:{" "}
+                    <strong className="font-semibold text-zinc-300">
+                      {new Date(
+                        `${acceptJoinedAt}T12:00:00`,
+                      ).toLocaleDateString("es-MX", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </strong>
+                  </>
+                )}
+              </p>
+            )}
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={savingJoinAcceptance}
+                onClick={() => {
+                  setAcceptingJoinRequest(null);
+                  setAcceptJoinedAt("");
+                }}
+                className="h-11 cursor-pointer text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              >
+                Cancelar
+              </Button>
+
+              <Button
+                type="button"
+                disabled={!acceptJoinedAt || savingJoinAcceptance}
+                onClick={() => void handleAcceptJoinRequest()}
+                className="h-11 cursor-pointer bg-purple-600 font-bold text-white hover:bg-purple-700 disabled:cursor-not-allowed"
+              >
+                {savingJoinAcceptance
+                  ? "Aceptando..."
+                  : "Aceptar integrante"}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -657,7 +1112,7 @@ export default function BandsPage() {
       )}
 
       {/* Empty state global */}
-      {!loading && bands.length === 0 && (
+      {!loading && bands.length === 0 && myJoinRequests.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="p-5 bg-zinc-900 rounded-full mb-4">
             <Users2 size={40} className="text-zinc-700" />
@@ -669,6 +1124,59 @@ export default function BandsPage() {
             Crea tu propia banda o únete a una con el código que te dé el
             encargado.
           </p>
+        </div>
+      )}
+
+      {/* Solicitudes pendientes para unirme */}
+      {myJoinRequests.length > 0 && (
+        <div className="mb-10">
+          <div className="mb-4 flex items-center gap-2">
+            <Clock3 size={14} className="text-amber-400" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">
+              Solicitudes pendientes
+            </h2>
+            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+              {myJoinRequests.length}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {myJoinRequests.map((request) => (
+              <div
+                key={request.id}
+                className="rounded-xl border border-amber-500/20 bg-zinc-900 p-5"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
+                    <Clock3 size={18} className="text-amber-400" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate font-bold text-white">
+                      {request.band_name}
+                    </h3>
+
+                    <p className="mt-1 text-xs font-semibold text-amber-400">
+                      Solicitud pendiente
+                    </p>
+
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Enviada el{" "}
+                      {new Date(request.created_at).toLocaleDateString("es-MX")}
+                    </p>
+                  </div>
+
+                  <span className="shrink-0 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[9px] font-bold uppercase text-amber-400">
+                    Pendiente
+                  </span>
+                </div>
+
+                <p className="mt-4 border-t border-zinc-800 pt-3 text-xs text-zinc-500">
+                  Esperando aprobación del encargado.
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -738,6 +1246,16 @@ export default function BandsPage() {
                         <Music size={12} />
                         {band.member_count}{" "}
                         {band.member_count === 1 ? "integrante" : "integrantes"}
+
+                        {(pendingRequestsByBand[band.id] ?? 0) > 0 && (
+                          <span className="ml-1 inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                            {pendingRequestsByBand[band.id]}{" "}
+                            {pendingRequestsByBand[band.id] === 1
+                              ? "pendiente"
+                              : "pendientes"}
+                          </span>
+                        )}
                       </button>
                       <button
                         type="button"
