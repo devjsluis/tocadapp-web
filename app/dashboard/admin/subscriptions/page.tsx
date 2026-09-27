@@ -85,9 +85,6 @@ export default function AdminSubscriptionsPage() {
 
   const [months, setMonths] = useState("1");
   const [accessUntil, setAccessUntil] = useState("");
-  const [amountMxn, setAmountMxn] = useState("49");
-  const [paymentReference, setPaymentReference] = useState("");
-  const [notes, setNotes] = useState("");
 
   const [editingPayment, setEditingPayment] =
     useState<SubscriptionPayment | null>(null);
@@ -180,9 +177,6 @@ export default function AdminSubscriptionsPage() {
     setSelectedUser(user);
     setMonths("1");
     setAccessUntil("");
-    setAmountMxn("49");
-    setPaymentReference("");
-    setNotes("");
   };
 
   const handleGrantAccess = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -190,14 +184,6 @@ export default function AdminSubscriptionsPage() {
 
     if (!selectedUser) {
       toast.error("Selecciona un usuario");
-      return;
-    }
-
-    const amount = Number(amountMxn);
-    const amountInCents = Math.round(amount * 100);
-
-    if (!Number.isFinite(amount) || amount < 0) {
-      toast.error("El monto no es válido");
       return;
     }
 
@@ -221,8 +207,6 @@ export default function AdminSubscriptionsPage() {
       await adminSubscriptionsService.grantAccess({
         userId: selectedUser.user_id,
         planCode: "TOCADAPP_MONTHLY",
-        amount: amountInCents,
-        currency: "MXN",
 
         ...(accessMode === "months"
           ? {
@@ -231,10 +215,6 @@ export default function AdminSubscriptionsPage() {
           : {
               accessUntil: new Date(accessUntil).toISOString(),
             }),
-
-        paymentReference: paymentReference.trim() || undefined,
-
-        notes: notes.trim() || undefined,
       });
 
       toast.success("Suscripción actualizada", {
@@ -242,9 +222,6 @@ export default function AdminSubscriptionsPage() {
       });
 
       await Promise.all([loadUsers(), loadPayments(selectedUser.user_id)]);
-
-      setPaymentReference("");
-      setNotes("");
     } catch (error) {
       toast.error("No se pudo actualizar la suscripción", {
         description: getErrorMessage(error),
@@ -382,7 +359,7 @@ export default function AdminSubscriptionsPage() {
           </h1>
 
           <p className="mt-2 text-sm text-zinc-400">
-            Administra el acceso y registra pagos manuales.
+            Administra el acceso manual y consulta el historial de pagos.
           </p>
         </div>
 
@@ -515,14 +492,14 @@ export default function AdminSubscriptionsPage() {
                 <p className="mt-4 font-medium">Selecciona un usuario</p>
 
                 <p className="mt-1 text-sm text-zinc-500">
-                  Podrás registrar un pago y conceder acceso.
+                  Podrás conceder acceso manual a este usuario.
                 </p>
               </div>
             ) : (
               <form onSubmit={handleGrantAccess} className="space-y-5">
                 <div>
                   <p className="text-sm text-zinc-500">
-                    Activar suscripción para
+                    Otorgar acceso manual a
                   </p>
                   <h2 className="text-xl font-semibold">{selectedUser.name}</h2>
                   <p className="text-sm text-zinc-400">{selectedUser.email}</p>
@@ -597,53 +574,12 @@ export default function AdminSubscriptionsPage() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Monto recibido en MXN</Label>
-
-                  <Input
-                    id="amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={amountMxn}
-                    onChange={(event) => setAmountMxn(event.target.value)}
-                    className="border-zinc-700 bg-zinc-950 text-white"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="reference">Referencia de pago</Label>
-
-                  <Input
-                    id="reference"
-                    value={paymentReference}
-                    onChange={(event) =>
-                      setPaymentReference(event.target.value)
-                    }
-                    placeholder="Ej. SPEI-123456"
-                    className="border-zinc-700 bg-zinc-950 text-white"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notas</Label>
-
-                  <textarea
-                    id="notes"
-                    value={notes}
-                    onChange={(event) => setNotes(event.target.value)}
-                    placeholder="Información adicional del pago"
-                    rows={3}
-                    className="w-full resize-none rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none transition focus:border-purple-500"
-                  />
-                </div>
-
                 <Button
                   type="submit"
                   disabled={submitting}
                   className="h-11 w-full bg-purple-700 font-semibold hover:bg-purple-800"
                 >
-                  {submitting ? "Registrando..." : "Registrar pago y activar"}
+                  {submitting ? "Otorgando..." : "Otorgar acceso"}
                 </Button>
               </form>
             )}

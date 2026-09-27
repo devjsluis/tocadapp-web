@@ -26,12 +26,8 @@ export type AdminSubscriptionsResponse = {
 export type GrantManualSubscriptionInput = {
   userId: number;
   planCode: string;
-  amount: number;
-  currency: string;
   months?: number;
   accessUntil?: string;
-  paymentReference?: string;
-  notes?: string;
 };
 
 export type SubscriptionPayment = {
