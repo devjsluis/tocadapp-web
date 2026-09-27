@@ -25,3 +25,12 @@ export type CurrentSubscriptionResponse = {
   hasAccess: boolean;
   subscription: CurrentSubscription | null;
 };
+
+export type CheckoutPlanCode =
+  | "TOCADAPP_MONTHLY"
+  | "TOCADAPP_YEARLY";
+
+export type CheckoutResponse = {
+  checkoutUrl: string;
+  sessionId: string;
+};

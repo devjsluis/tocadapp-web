@@ -14,9 +14,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { tokenStorage } from "@/features/auth/storage/token-storage";
 import { subscriptionsService } from "@/features/subscriptions/services/subscriptions.service";
-import type { CurrentSubscriptionResponse } from "@/features/subscriptions/types/subscription";
-
-type PlanCode = "TOCADAPP_MONTHLY" | "TOCADAPP_YEARLY";
+import type {
+  CheckoutPlanCode,
+  CurrentSubscriptionResponse,
+} from "@/features/subscriptions/types/subscription";
 
 const MONTHLY_PRICE = 79;
 const YEARLY_PRICE = 699;
@@ -24,12 +25,16 @@ const YEARLY_SAVINGS = MONTHLY_PRICE * 12 - YEARLY_PRICE;
 
 export default function SubscriptionRequiredPage() {
   const router = useRouter();
+  const [checkoutStatus, setCheckoutStatus] = useState<
+    string | null | undefined
+  >(undefined);
+  const [confirmingCheckout, setConfirmingCheckout] = useState(false);
 
   const [subscriptionData, setSubscriptionData] =
     useState<CurrentSubscriptionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] =
-    useState<PlanCode>("TOCADAPP_YEARLY");
+    useState<CheckoutPlanCode>("TOCADAPP_YEARLY");
 
   const loadSubscription = useCallback(async () => {
     try {
@@ -50,21 +55,91 @@ export default function SubscriptionRequiredPage() {
   }, [router]);
 
   useEffect(() => {
-    void loadSubscription();
-  }, [loadSubscription]);
+    const params = new URLSearchParams(window.location.search);
+    setCheckoutStatus(params.get("checkout"));
+  }, []);
+
+  useEffect(() => {
+    if (checkoutStatus === undefined) {
+      return;
+    }
+
+    if (checkoutStatus !== "success") {
+      void loadSubscription();
+      return;
+    }
+
+    let cancelled = false;
+
+    const confirmSubscription = async () => {
+      setConfirmingCheckout(true);
+
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const result = await loadSubscription();
+
+        if (cancelled || result?.hasAccess) {
+          return;
+        }
+
+        if (attempt < 4) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+      }
+
+      if (!cancelled) {
+        setConfirmingCheckout(false);
+
+        toast.info("Tu pago está siendo confirmado", {
+          description:
+            "Si acabas de pagar, espera unos segundos y comprueba tu suscripción.",
+        });
+      }
+    };
+
+    void confirmSubscription();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [checkoutStatus, loadSubscription]);
+
+  useEffect(() => {
+    if (checkoutStatus !== "canceled") {
+      return;
+    }
+
+    toast.info("Pago cancelado", {
+      description: "No se realizó ningún cargo.",
+    });
+
+    router.replace("/subscription-required");
+  }, [checkoutStatus, router]);
 
   const handleLogout = () => {
     tokenStorage.remove();
     router.replace("/login");
   };
 
-  const handleSubscribe = () => {
-    const planName =
-      selectedPlan === "TOCADAPP_YEARLY" ? "anual" : "mensual";
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-    toast.info(`Plan ${planName} seleccionado`, {
-      description: "El pago estará disponible próximamente.",
-    });
+  const handleSubscribe = async () => {
+    if (checkoutLoading) return;
+
+    try {
+      setCheckoutLoading(true);
+
+      const result = await subscriptionsService.createCheckout(selectedPlan);
+
+      window.location.assign(result.checkoutUrl);
+    } catch (error) {
+      console.error("Error creando Checkout:", error);
+
+      toast.error("No pudimos iniciar el pago", {
+        description: "Intenta nuevamente en unos momentos.",
+      });
+
+      setCheckoutLoading(false);
+    }
   };
 
   const handleCheckSubscription = async () => {
@@ -264,11 +339,16 @@ export default function SubscriptionRequiredPage() {
               <Button
                 type="button"
                 className="h-12 w-full bg-purple-700 font-semibold text-white hover:bg-purple-600"
-                onClick={handleSubscribe}
+                onClick={() => void handleSubscribe()}
+                disabled={checkoutLoading || confirmingCheckout}
               >
-                {selectedPlan === "TOCADAPP_YEARLY"
-                  ? "Continuar con el plan anual"
-                  : "Continuar con el plan mensual"}
+                {confirmingCheckout
+                  ? "Confirmando tu suscripción..."
+                  : checkoutLoading
+                    ? "Abriendo pago..."
+                    : selectedPlan === "TOCADAPP_YEARLY"
+                      ? "Continuar con el plan anual"
+                      : "Continuar con el plan mensual"}
               </Button>
 
               <button
