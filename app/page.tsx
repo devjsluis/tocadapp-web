@@ -123,7 +123,7 @@ export default function Home() {
                   </p>
 
                   <div className="mt-2 flex items-baseline gap-2">
-                    <span className="text-4xl font-bold text-white">$50</span>
+                    <span className="text-4xl font-bold text-white">$79</span>
 
                     <span className="text-sm text-zinc-500">MXN/mes</span>
                   </div>
@@ -143,13 +143,13 @@ export default function Home() {
                   </p>
 
                   <div className="mt-2 flex items-baseline gap-2">
-                    <span className="text-4xl font-bold text-white">$500</span>
+                    <span className="text-4xl font-bold text-white">$699</span>
 
                     <span className="text-sm text-zinc-400">MXN/año</span>
                   </div>
 
                   <p className="mt-3 text-xs font-medium text-green-400">
-                    Ahorras $100 · Recibe 2 meses incluidos
+                    Ahorras $249 al año · Equivale a $58.25/mes
                   </p>
                 </div>
               </div>
