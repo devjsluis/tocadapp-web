@@ -28,6 +28,9 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [managingSubscription, setManagingSubscription] = useState(false);
+  const [activeTab, setActiveTab] = useState<"profile" | "subscription">(
+    "profile",
+  );
 
   const loadSubscription = async () => {
     const result = await subscriptionsService.getCurrent();
@@ -135,23 +138,63 @@ export default function ProfilePage() {
           : "Expirada";
 
   return (
-    <div className="max-w-xl mx-auto space-y-10">
-      <section>
-        <div className="mb-8 border-b border-zinc-800/50 pb-6">
-          <h1 className="text-3xl font-bold bg-linear-to-r from-white to-zinc-500 bg-clip-text text-transparent">
-            Mi Perfil
-          </h1>
-          <p className="text-zinc-500 mt-1">Edita tu nombre de usuario</p>
-        </div>
+    <div className="max-w-3xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold bg-linear-to-r from-white to-zinc-500 bg-clip-text text-transparent">
+          Mi cuenta
+        </h1>
+        <p className="text-zinc-500 mt-1">
+          Administra tu información personal y tu suscripción.
+        </p>
+      </div>
 
-        {loading ? (
+      <div className="mb-8 flex gap-1 rounded-xl border border-zinc-800 bg-zinc-900/60 p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab("profile")}
+          className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
+            activeTab === "profile"
+              ? "bg-purple-600 text-white shadow-sm"
+              : "text-zinc-400 hover:text-white hover:bg-zinc-800/70"
+          }`}
+        >
+          Perfil
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("subscription")}
+          className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
+            activeTab === "subscription"
+              ? "bg-purple-600 text-white shadow-sm"
+              : "text-zinc-400 hover:text-white hover:bg-zinc-800/70"
+          }`}
+        >
+          Suscripción
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <div className="space-y-4 animate-pulse">
-            <div className="h-10 bg-zinc-800 rounded-lg" />
-            <div className="h-10 bg-zinc-800 rounded-lg" />
-            <div className="h-12 bg-zinc-800 rounded-lg mt-2" />
+            <div className="h-5 w-40 bg-zinc-800 rounded-lg" />
+            <div className="h-12 bg-zinc-800 rounded-lg" />
+            <div className="h-12 bg-zinc-800 rounded-lg" />
+            <div className="h-12 bg-zinc-800 rounded-lg" />
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+        </div>
+      ) : activeTab === "profile" ? (
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 sm:p-8">
+          <div className="mb-7">
+            <h2 className="text-xl font-bold text-white">
+              Información personal
+            </h2>
+            <p className="text-sm text-zinc-500 mt-1">
+              Actualiza los datos visibles de tu cuenta.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="text-xs text-zinc-500 font-bold uppercase mb-1.5 block">
                 Nombre
@@ -161,7 +204,7 @@ export default function ProfilePage() {
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 required
-                className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white"
+                className="w-full bg-zinc-800/80 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white transition-colors"
               />
             </div>
 
@@ -176,130 +219,167 @@ export default function ProfilePage() {
                   setForm({ ...form, last_name: e.target.value })
                 }
                 required
-                className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white"
+                className="w-full bg-zinc-800/80 border border-zinc-700 p-3 rounded-lg outline-none focus:border-purple-500 text-white transition-colors"
               />
             </div>
 
-            <Button
-              type="submit"
-              disabled={saving}
-              className="w-full bg-purple-600 hover:bg-purple-700 font-bold py-6 cursor-pointer mt-2"
-            >
-              {saving ? "Guardando..." : "Guardar cambios"}
-            </Button>
+            <div className="pt-2">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="bg-purple-600 hover:bg-purple-700 font-bold px-7 cursor-pointer"
+              >
+                {saving ? "Guardando..." : "Guardar cambios"}
+              </Button>
+            </div>
           </form>
-        )}
-      </section>
-
-      {!loading && subscription && (
-        <section className="border-t border-zinc-800/50 pt-8">
-          <div className="mb-5">
-            <h2 className="text-xl font-bold text-white">Mi suscripción</h2>
+        </section>
+      ) : (
+        <section>
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-white">Tu suscripción</h2>
             <p className="text-sm text-zinc-500 mt-1">
-              Consulta tu plan y administra tu acceso a TocadApp.
+              Consulta el estado de tu plan y administra tu renovación.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 space-y-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-semibold text-white">
-                  {subscription.plan.name}
-                </p>
+          {subscription ? (
+            <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+              <div className="p-6 sm:p-8">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-purple-400">
+                      Tu plan actual
+                    </p>
+                    <h3 className="mt-2 text-2xl font-bold text-white">
+                      {subscription.plan.name}
+                    </h3>
 
-                {subscription.provider === "STRIPE" && (
-                  <p className="text-sm text-zinc-400 mt-1">
-                    {formatPrice(
-                      subscription.priceAmount,
-                      subscription.currency,
-                    )}{" "}
-                    / {intervalLabel}
-                  </p>
+                    {subscription.provider === "STRIPE" && (
+                      <p className="mt-1 text-zinc-400">
+                        {formatPrice(
+                          subscription.priceAmount,
+                          subscription.currency,
+                        )}{" "}
+                        / {intervalLabel}
+                      </p>
+                    )}
+                  </div>
+
+                  <span className="w-fit rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-200">
+                    {statusLabel}
+                  </span>
+                </div>
+
+                <div className="my-7 h-px bg-zinc-800" />
+
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                      Estado
+                    </p>
+                    <p className="mt-2 font-medium text-zinc-200">
+                      {subscription.cancelAtPeriodEnd
+                        ? "Cancelación programada"
+                        : statusLabel}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                      {subscription.provider === "STRIPE" &&
+                      !subscription.cancelAtPeriodEnd
+                        ? "Próxima renovación"
+                        : "Acceso hasta"}
+                    </p>
+                    <p className="mt-2 font-medium text-zinc-200">
+                      {formatDate(subscription.currentPeriodEnd)}
+                    </p>
+                  </div>
+                </div>
+
+                {subscription.provider === "TRIAL" && (
+                  <div className="mt-7 rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+                    <p className="text-sm text-zinc-300">
+                      Estás disfrutando tu periodo de prueba de TocadApp.
+                    </p>
+                  </div>
                 )}
+
+                {subscription.provider === "MANUAL" && (
+                  <div className="mt-7 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+                    <p className="text-sm font-medium text-zinc-300">
+                      Acceso administrado por TocadApp
+                    </p>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      No necesitas administrar ningún método de pago para este
+                      acceso.
+                    </p>
+                  </div>
+                )}
+
+                {subscription.provider === "STRIPE" &&
+                  subscription.cancelAtPeriodEnd && (
+                    <div className="mt-7 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                      <p className="font-medium text-amber-300">
+                        Tu renovación está cancelada
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-400">
+                        No recibirás más cargos y podrás seguir usando TocadApp
+                        hasta {formatDate(subscription.currentPeriodEnd)}.
+                      </p>
+                    </div>
+                  )}
               </div>
 
-              <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-semibold text-zinc-300">
-                {statusLabel}
-              </span>
-            </div>
-
-            <div className="border-t border-zinc-800 pt-4 space-y-2 text-sm">
-              {subscription.provider === "TRIAL" && (
-                <p className="text-zinc-400">
-                  Periodo de prueba hasta{" "}
-                  <span className="text-zinc-200">
-                    {formatDate(subscription.currentPeriodEnd)}
-                  </span>
-                </p>
-              )}
-
-              {subscription.provider === "MANUAL" && (
-                <p className="text-zinc-400">
-                  Acceso disponible hasta{" "}
-                  <span className="text-zinc-200">
-                    {formatDate(subscription.currentPeriodEnd)}
-                  </span>
-                </p>
-              )}
-
               {subscription.provider === "STRIPE" &&
-                subscription.cancelAtPeriodEnd && (
-                  <>
-                    <p className="font-medium text-amber-300">
-                      Cancelación programada
-                    </p>
-                    <p className="text-zinc-400">
-                      No recibirás más cargos. Mantendrás acceso hasta{" "}
-                      <span className="text-zinc-200">
-                        {formatDate(subscription.currentPeriodEnd)}
-                      </span>
-                      .
-                    </p>
-                  </>
-                )}
-
-              {subscription.provider === "STRIPE" &&
-                !subscription.cancelAtPeriodEnd &&
                 subscription.status === "ACTIVE" && (
-                  <p className="text-zinc-400">
-                    Próxima renovación:{" "}
-                    <span className="text-zinc-200">
-                      {formatDate(subscription.currentPeriodEnd)}
-                    </span>
-                  </p>
+                  <div className="border-t border-zinc-800 bg-zinc-950/30 px-6 py-5 sm:px-8">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm text-zinc-500">
+                        {subscription.cancelAtPeriodEnd
+                          ? "Puedes reactivar la renovación antes de que termine tu acceso."
+                          : "Puedes cancelar cuando quieras y conservarás el periodo ya pagado."}
+                      </p>
+
+                      {subscription.cancelAtPeriodEnd ? (
+                        <Button
+                          type="button"
+                          disabled={managingSubscription}
+                          onClick={() => void handleReactivateSubscription()}
+                          className="shrink-0 bg-purple-600 hover:bg-purple-700 cursor-pointer"
+                        >
+                          {managingSubscription
+                            ? "Procesando..."
+                            : "Reactivar renovación"}
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={managingSubscription}
+                          onClick={() => void handleCancelSubscription()}
+                          className="shrink-0 border-zinc-700 cursor-pointer"
+                        >
+                          {managingSubscription
+                            ? "Procesando..."
+                            : "Cancelar renovación"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 )}
             </div>
-
-            {subscription.provider === "STRIPE" &&
-              subscription.status === "ACTIVE" && (
-                <div className="border-t border-zinc-800 pt-4">
-                  {subscription.cancelAtPeriodEnd ? (
-                    <Button
-                      type="button"
-                      disabled={managingSubscription}
-                      onClick={() => void handleReactivateSubscription()}
-                      className="w-full bg-purple-600 hover:bg-purple-700 cursor-pointer"
-                    >
-                      {managingSubscription
-                        ? "Procesando..."
-                        : "Reactivar renovación"}
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={managingSubscription}
-                      onClick={() => void handleCancelSubscription()}
-                      className="w-full border-zinc-700 cursor-pointer"
-                    >
-                      {managingSubscription
-                        ? "Procesando..."
-                        : "Cancelar renovación"}
-                    </Button>
-                  )}
-                </div>
-              )}
-          </div>
+          ) : (
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-8 text-center">
+              <p className="font-medium text-white">
+                No tienes una suscripción activa
+              </p>
+              <p className="mt-1 text-sm text-zinc-500">
+                Elige un plan para continuar usando TocadApp.
+              </p>
+            </div>
+          )}
         </section>
       )}
     </div>
