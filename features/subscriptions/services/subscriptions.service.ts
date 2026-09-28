@@ -21,4 +21,12 @@ export const subscriptionsService = {
 
     return response.data;
   },
+
+  async cancel(): Promise<void> {
+    await api.post("/subscriptions/cancel");
+  },
+
+  async reactivate(): Promise<void> {
+    await api.post("/subscriptions/reactivate");
+  },
 };
