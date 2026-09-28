@@ -210,7 +210,7 @@ export default function Home() {
             <ContactLink
               icon={<Mail />}
               label="Email"
-              href="mailto:hola@tocadapp.com"
+              href="mailto:tocadapp@gmail.com"
             />
 
             <ContactLink icon={<Instagram />} label="Instagram" href="#" />
@@ -221,7 +221,19 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-zinc-900 py-10 text-center text-sm text-zinc-600">
-        © {new Date().getFullYear()} TocadApp. Todos los derechos reservados.
+        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-5">
+          <span>
+            © {new Date().getFullYear()} TocadApp. Todos los derechos
+            reservados.
+          </span>
+
+          <Link
+            href="/privacy"
+            className="transition-colors hover:text-purple-400"
+          >
+            Política de privacidad
+          </Link>
+        </div>
       </footer>
     </div>
   );
