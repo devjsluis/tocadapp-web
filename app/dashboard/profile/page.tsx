@@ -279,13 +279,13 @@ export default function ProfilePage() {
               </a>
 
               <a
-                href="/delete-account"
+                href="/dashboard/profile/delete-account"
                 className="flex items-center justify-between bg-zinc-900/50 px-5 py-4 transition-colors hover:bg-zinc-800/70"
               >
                 <div>
                   <p className="font-medium text-red-400">Eliminar cuenta</p>
                   <p className="mt-0.5 text-sm text-zinc-500">
-                    Información sobre la eliminación de tu cuenta y tus datos
+                    Elimina permanentemente tu cuenta y tus datos personales
                   </p>
                 </div>
                 <span className="text-zinc-500">→</span>

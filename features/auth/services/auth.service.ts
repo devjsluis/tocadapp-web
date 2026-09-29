@@ -64,4 +64,16 @@ export const authService = {
 
     return data;
   },
+
+  deleteAccount: async (password: string): Promise<MessageResponse> => {
+    const { data } = await api.delete<MessageResponse>("/users/me", {
+      data: {
+        password,
+      },
+    });
+
+    tokenStorage.remove();
+
+    return data;
+  },
 };
