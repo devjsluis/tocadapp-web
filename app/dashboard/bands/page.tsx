@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { api } from "@/lib/axios";
 import {
@@ -126,7 +126,32 @@ export default function BandsPage() {
   const [bandToLeave, setBandToLeave] = useState<Band | null>(null);
   const [leavingBand, setLeavingBand] = useState(false);
 
-  const fetchBands = async () => {
+  const fetchPendingRequestsByBand = useCallback(
+    async (currentBands: Band[]) => {
+      const ownedBands = currentBands.filter((band) => band.is_owner);
+
+      if (ownedBands.length === 0) {
+        setPendingRequestsByBand({});
+        return;
+      }
+
+      try {
+        const responses = await Promise.all(
+          ownedBands.map(async (band) => {
+            const { data } = await api.get(`/bands/${band.id}/join-requests`);
+            return [band.id, (data.data ?? []).length] as const;
+          }),
+        );
+
+        setPendingRequestsByBand(Object.fromEntries(responses));
+      } catch {
+        // El indicador es complementario; no bloqueamos la pantalla si falla.
+      }
+    },
+    [],
+  );
+
+  const fetchBands = useCallback(async () => {
     try {
       const { data } = await api.get("/bands");
       const loadedBands: Band[] = data.data ?? [];
@@ -137,42 +162,20 @@ export default function BandsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchPendingRequestsByBand]);
 
-  const fetchPendingRequestsByBand = async (currentBands: Band[]) => {
-    const ownedBands = currentBands.filter((band) => band.is_owner);
-
-    if (ownedBands.length === 0) {
-      setPendingRequestsByBand({});
-      return;
-    }
-
-    try {
-      const responses = await Promise.all(
-        ownedBands.map(async (band) => {
-          const { data } = await api.get(`/bands/${band.id}/join-requests`);
-          return [band.id, (data.data ?? []).length] as const;
-        }),
-      );
-
-      setPendingRequestsByBand(Object.fromEntries(responses));
-    } catch {
-      // El indicador es complementario; no bloqueamos la pantalla si falla.
-    }
-  };
-
-  const fetchMyJoinRequests = async () => {
+  const fetchMyJoinRequests = useCallback(async () => {
     try {
       const { data } = await api.get("/bands/my-join-requests");
       setMyJoinRequests(data.data ?? []);
     } catch {
       toast.error("Error al cargar solicitudes pendientes");
     }
-  };
+  }, []);
 
   useEffect(() => {
     void Promise.all([fetchBands(), fetchMyJoinRequests()]);
-  }, []);
+  }, [fetchBands, fetchMyJoinRequests]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

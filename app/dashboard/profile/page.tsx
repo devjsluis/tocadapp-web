@@ -233,6 +233,65 @@ export default function ProfilePage() {
               </Button>
             </div>
           </form>
+
+          <div className="my-8 h-px bg-zinc-800" />
+
+          <div>
+            <h2 className="text-xl font-bold text-white">Legal y cuenta</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Consulta la información legal de TocadApp y las opciones relacionadas
+              con tu cuenta.
+            </p>
+
+            <div className="mt-5 overflow-hidden rounded-xl border border-zinc-800">
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/50 px-5 py-4 transition-colors hover:bg-zinc-800/70"
+              >
+                <div>
+                  <p className="font-medium text-zinc-200">
+                    Términos y Condiciones
+                  </p>
+                  <p className="mt-0.5 text-sm text-zinc-500">
+                    Condiciones de uso de TocadApp
+                  </p>
+                </div>
+                <span className="text-zinc-500">↗</span>
+              </a>
+
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/50 px-5 py-4 transition-colors hover:bg-zinc-800/70"
+              >
+                <div>
+                  <p className="font-medium text-zinc-200">
+                    Política de Privacidad
+                  </p>
+                  <p className="mt-0.5 text-sm text-zinc-500">
+                    Cómo tratamos y protegemos tu información
+                  </p>
+                </div>
+                <span className="text-zinc-500">↗</span>
+              </a>
+
+              <a
+                href="/delete-account"
+                className="flex items-center justify-between bg-zinc-900/50 px-5 py-4 transition-colors hover:bg-zinc-800/70"
+              >
+                <div>
+                  <p className="font-medium text-red-400">Eliminar cuenta</p>
+                  <p className="mt-0.5 text-sm text-zinc-500">
+                    Información sobre la eliminación de tu cuenta y tus datos
+                  </p>
+                </div>
+                <span className="text-zinc-500">→</span>
+              </a>
+            </div>
+          </div>
         </section>
       ) : (
         <section>

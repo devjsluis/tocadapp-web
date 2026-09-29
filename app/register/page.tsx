@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ApiError } from "@/types/auth";
 import { authService } from "@/features/auth/services/auth.service";
 import { Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function RegisterPage() {
     email: "",
     password: "",
     role: "musician",
+    acceptTerms: false,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -169,12 +171,50 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
+                <div className="col-span-2 flex items-start gap-3">
+                  <input
+                    id="acceptTerms"
+                    type="checkbox"
+                    checked={formData.acceptTerms}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        acceptTerms: e.target.checked,
+                      })
+                    }
+                    className="mt-1 h-4 w-4 shrink-0 accent-purple-600"
+                  />
+
+                  <Label
+                    htmlFor="acceptTerms"
+                    className="text-sm font-normal leading-6 text-zinc-400"
+                  >
+                    He leído y acepto los{" "}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      className="font-medium text-purple-400 hover:text-purple-300"
+                    >
+                      Términos y Condiciones
+                    </Link>{" "}
+                    y reconozco la{" "}
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="font-medium text-purple-400 hover:text-purple-300"
+                    >
+                      Política de Privacidad
+                    </Link>
+                    .
+                  </Label>
+                </div>
+
                 <Button
                   type="submit"
                   onClick={(e) => {
                     e.stopPropagation();
                   }}
-                  disabled={loading}
+                  disabled={loading || !formData.acceptTerms}
                   className="col-span-2 h-12 w-full bg-purple-700 font-bold hover:bg-purple-800 text-white mt-4 text-lg shadow-[0_0_20px_rgba(126,34,206,0.3)] active:scale-[0.98] transition-all"
                 >
                   {loading ? "Registrando..." : "Crear cuenta"}

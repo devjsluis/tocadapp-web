@@ -28,7 +28,7 @@ export default function PrivacyPage() {
           </h1>
 
           <p className="mt-4 text-sm text-zinc-500">
-            Última actualización: 28 de septiembre de 2026
+            Última actualización: 29 de septiembre de 2026
           </p>
         </header>
 
