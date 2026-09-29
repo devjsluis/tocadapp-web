@@ -185,15 +185,16 @@ export default function RegisterPage() {
                     className="mt-1 h-4 w-4 shrink-0 accent-purple-600"
                   />
 
-                  <Label
+                  <label
                     htmlFor="acceptTerms"
-                    className="text-sm font-normal leading-6 text-zinc-400"
+                    className="min-w-0 cursor-pointer text-sm font-normal leading-6 text-zinc-400"
                   >
                     He leído y acepto los{" "}
                     <Link
                       href="/terms"
                       target="_blank"
-                      className="font-medium text-purple-400 hover:text-purple-300"
+                      rel="noopener noreferrer"
+                      className="font-medium text-purple-400 transition-colors hover:text-purple-300"
                     >
                       Términos y Condiciones
                     </Link>{" "}
@@ -201,12 +202,13 @@ export default function RegisterPage() {
                     <Link
                       href="/privacy"
                       target="_blank"
-                      className="font-medium text-purple-400 hover:text-purple-300"
+                      rel="noopener noreferrer"
+                      className="font-medium text-purple-400 transition-colors hover:text-purple-300"
                     >
                       Política de Privacidad
                     </Link>
                     .
-                  </Label>
+                  </label>
                 </div>
 
                 <Button
