@@ -50,6 +50,25 @@ export const authService = {
     return data;
   },
 
+  changeUnverifiedEmail: async (
+    currentEmail: string,
+    newEmail: string,
+    password: string,
+  ): Promise<{
+    ok: boolean;
+    email: string;
+    emailSent: boolean;
+    message: string;
+  }> => {
+    const { data } = await api.post("/users/change-unverified-email", {
+      currentEmail,
+      newEmail,
+      password,
+    });
+
+    return data;
+  },
+
   forgotPassword: async (email: string) => {
     const { data } = await api.post("/users/forgot-password", { email });
 

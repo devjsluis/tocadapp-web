@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { ArrowLeft, CheckCircle2, Mail, RefreshCw } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, Mail, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -27,6 +27,10 @@ export function VerifyEmailRequiredClient({
   const [email, setEmail] = useState(initialEmail);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(initiallySent);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSendVerification = async () => {
     const normalizedEmail = email.trim().toLowerCase();
@@ -55,6 +59,67 @@ export function VerifyEmailRequiredClient({
       }
 
       toast.error("No se pudo enviar", {
+        description: message,
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleChangeEmail = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedNewEmail = newEmail.trim().toLowerCase();
+
+    if (!normalizedNewEmail) {
+      toast.error("Ingresa el nuevo correo");
+      return;
+    }
+
+    if (normalizedNewEmail === normalizedEmail) {
+      toast.error("Usa un correo diferente");
+      return;
+    }
+
+    if (!password) {
+      toast.error("Ingresa tu contraseña");
+      return;
+    }
+
+    if (sending) return;
+
+    setSending(true);
+
+    try {
+      const response = await authService.changeUnverifiedEmail(
+        normalizedEmail,
+        normalizedNewEmail,
+        password,
+      );
+
+      setEmail(response.email);
+      setNewEmail("");
+      setPassword("");
+      setShowPassword(false);
+      setEditingEmail(false);
+      setSent(response.emailSent);
+
+      if (response.emailSent) {
+        toast.success("Correo actualizado", {
+          description: response.message,
+        });
+      } else {
+        toast.warning("Correo actualizado", {
+          description: response.message,
+        });
+      }
+    } catch (error) {
+      let message = "No fue posible actualizar el correo.";
+
+      if (axios.isAxiosError<ApiError>(error)) {
+        message = error.response?.data?.error || message;
+      }
+
+      toast.error("No se pudo actualizar", {
         description: message,
       });
     } finally {
@@ -96,26 +161,129 @@ export function VerifyEmailRequiredClient({
               id="verification-email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="correo@ejemplo.com"
-              className="h-12 border-zinc-800 bg-zinc-900 text-white"
+              readOnly
+              className="h-12 cursor-default border-zinc-800 bg-zinc-900 text-zinc-300"
             />
           </div>
 
-          <Button
-            type="button"
-            onClick={() => void handleSendVerification()}
-            disabled={sending}
-            className="mt-5 h-12 w-full bg-purple-700 font-bold hover:bg-purple-800"
-          >
-            <RefreshCw size={17} className={sending ? "animate-spin" : ""} />
+          {!editingEmail ? (
+            <>
+              <Button
+                type="button"
+                onClick={() => void handleSendVerification()}
+                disabled={sending || !email.trim()}
+                className="mt-5 h-12 w-full bg-purple-700 font-bold hover:bg-purple-800"
+              >
+                <RefreshCw
+                  size={17}
+                  className={sending ? "animate-spin" : ""}
+                />
 
-            {sending
-              ? "Enviando..."
-              : sent
-                ? "Reenviar correo"
-                : "Enviar correo de verificación"}
-          </Button>
+                {sending
+                  ? "Enviando..."
+                  : sent
+                    ? "Reenviar correo"
+                    : "Enviar correo de verificación"}
+              </Button>
+
+              <button
+                type="button"
+                onClick={() => setEditingEmail(true)}
+                disabled={sending}
+                className="mt-4 w-full text-center text-sm font-semibold text-purple-400 transition-colors hover:text-purple-300 disabled:opacity-50"
+              >
+                ¿Escribiste mal tu correo? Corregirlo
+              </button>
+            </>
+          ) : (
+            <div className="mt-5 space-y-4">
+              <div className="space-y-2">
+                <label
+                  htmlFor="new-verification-email"
+                  className="text-xs font-semibold uppercase tracking-wider text-zinc-400"
+                >
+                  Nuevo correo electrónico
+                </label>
+
+                <Input
+                  id="new-verification-email"
+                  type="email"
+                  value={newEmail}
+                  onChange={(event) => setNewEmail(event.target.value)}
+                  placeholder="correo@ejemplo.com"
+                  autoComplete="email"
+                  className="h-12 border-zinc-800 bg-zinc-900 text-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="verification-password"
+                  className="text-xs font-semibold uppercase tracking-wider text-zinc-400"
+                >
+                  Contraseña
+                </label>
+
+                <div className="relative">
+                  <Input
+                    id="verification-password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Tu contraseña"
+                    autoComplete="current-password"
+                    className="h-12 border-zinc-800 bg-zinc-900 pr-12 text-white"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        void handleChangeEmail();
+                      }
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 transition-colors hover:text-white"
+                    aria-label={
+                      showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                    }
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                onClick={() => void handleChangeEmail()}
+                disabled={
+                  sending ||
+                  !newEmail.trim() ||
+                  !password ||
+                  newEmail.trim().toLowerCase() === email.trim().toLowerCase()
+                }
+                className="h-12 w-full bg-purple-700 font-bold hover:bg-purple-800"
+              >
+                {sending
+                  ? "Actualizando..."
+                  : "Actualizar correo y enviar enlace"}
+              </Button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingEmail(false);
+                  setNewEmail("");
+                  setPassword("");
+                  setShowPassword(false);
+                }}
+                disabled={sending}
+                className="w-full text-center text-sm text-zinc-500 transition-colors hover:text-white disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
 
           <Link
             href="/login"
