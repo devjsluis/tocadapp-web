@@ -507,11 +507,21 @@ export default function BandsPage() {
             <label htmlFor="band-name" className="block text-sm text-zinc-300">Nombre de la banda</label>
             <input id="band-name" value={editName} maxLength={255} required disabled={renaming}
               onChange={event => setEditName(event.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-3 text-white" />
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-3 text-white outline-none transition-colors hover:border-zinc-500 focus-visible:border-purple-500 focus-visible:ring-2 focus-visible:ring-purple-500/30 disabled:opacity-50" />
             {renameError && <p role="alert" className="text-sm text-red-400">{renameError}</p>}
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline" disabled={renaming} onClick={() => setEditingBand(null)}>Cancelar</Button>
-              <Button type="submit" disabled={renaming || !editName.trim()}>{renaming ? "Guardando..." : "Guardar nombre"}</Button>
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={renaming}
+                onClick={() => setEditingBand(null)}
+                className="h-11 border-zinc-700 bg-transparent text-zinc-300 hover:border-purple-500 hover:bg-purple-500/10 hover:text-purple-300 focus-visible:border-purple-500 focus-visible:ring-purple-500/40"
+              >Cancelar</Button>
+              <Button
+                type="submit"
+                disabled={renaming || !editName.trim()}
+                className="h-11 bg-purple-600 text-white hover:bg-purple-700 focus-visible:border-purple-400 focus-visible:ring-purple-500/40"
+              >{renaming ? "Guardando..." : "Guardar nombre"}</Button>
             </div>
           </form>
         </div>
