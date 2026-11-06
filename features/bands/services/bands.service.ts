@@ -7,6 +7,11 @@ interface GetBandsResponse {
 }
 
 export const bandsService = {
+  rename: async (bandId: string, name: string): Promise<Band> => {
+    const { data } = await api.patch(`/bands/${bandId}`, { name });
+    return data.data;
+  },
+
   getAll: async (): Promise<Band[]> => {
     const { data } = await api.get<GetBandsResponse>("/bands");
     return data.data;

@@ -119,3 +119,7 @@ export function getConflictingGigIds(gigs: Gig[]): Set<string> {
 
   return conflictingIds;
 }
+
+export function getBillableHours(gig: Pick<Gig, "hours" | "free_hours">): number {
+  return Math.max(0, Number(gig.hours || 0) - Number(gig.free_hours || 0));
+}

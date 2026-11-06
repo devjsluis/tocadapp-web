@@ -1,5 +1,7 @@
 "use client";
 
+import { FreeHoursNote } from "./FreeHoursNote";
+
 import {
   AlertTriangle,
   Calendar,
@@ -114,7 +116,7 @@ export function GridView({
 
               <div className="flex items-center gap-2">
                 <Clock size={14} className="text-zinc-600 shrink-0" />
-                {String(gig.time).slice(0, 5)} ({gig.hours} hrs)
+                {String(gig.time).slice(0, 5)} ({gig.hours} hrs) <FreeHoursNote gig={gig} />
               </div>
             </div>
 

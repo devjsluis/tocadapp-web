@@ -1,5 +1,7 @@
 "use client";
 
+import { FreeHoursNote } from "./FreeHoursNote";
+
 import {
   AlertTriangle,
   CheckCircle2,
@@ -149,7 +151,7 @@ export function MonthView({
 
                           <span className="flex shrink-0 items-center gap-1">
                             <Clock size={11} />
-                            {String(gig.time).slice(0, 5)} · {gig.hours} hrs
+                            {String(gig.time).slice(0, 5)} · {gig.hours} hrs <FreeHoursNote gig={gig} />
                           </span>
                         </div>
 

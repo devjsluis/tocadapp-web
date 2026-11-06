@@ -1,5 +1,7 @@
 "use client";
 
+import { FreeHoursNote } from "./FreeHoursNote";
+
 import { useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -464,7 +466,7 @@ export function CalendarView({
 
                         <span>
                           {gig.hours}{" "}
-                          {Number(gig.hours) === 1 ? "hora" : "horas"}
+                          {Number(gig.hours) === 1 ? "hora" : "horas"} <FreeHoursNote gig={gig} />
                         </span>
                       </div>
                     </div>

@@ -15,7 +15,9 @@ import {
   Music,
   Hash,
   Clock3,
+  Pencil,
 } from "lucide-react";
+import { bandsService } from "@/features/bands/services/bands.service";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -30,6 +32,7 @@ interface Band {
   is_owner: boolean;
   member_count: number;
   created_at: string;
+  archived_at?: string | null;
 }
 
 interface BandJoinRequest {
@@ -93,6 +96,10 @@ const BandSkeleton = () => (
 );
 
 export default function BandsPage() {
+  const [editingBand, setEditingBand] = useState<Band | null>(null);
+  const [editName, setEditName] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [bands, setBands] = useState<Band[]>([]);
   const [myJoinRequests, setMyJoinRequests] = useState<MyBandJoinRequest[]>([]);
   const [pendingRequestsByBand, setPendingRequestsByBand] = useState<
@@ -128,7 +135,7 @@ export default function BandsPage() {
 
   const fetchPendingRequestsByBand = useCallback(
     async (currentBands: Band[]) => {
-      const ownedBands = currentBands.filter((band) => band.is_owner);
+      const ownedBands = currentBands.filter((band) => band.is_owner && !band.archived_at);
 
       if (ownedBands.length === 0) {
         setPendingRequestsByBand({});
@@ -153,7 +160,7 @@ export default function BandsPage() {
 
   const fetchBands = useCallback(async () => {
     try {
-      const { data } = await api.get("/bands");
+      const { data } = await api.get("/bands", { params: { status: "all" } });
       const loadedBands: Band[] = data.data ?? [];
       setBands(loadedBands);
       await fetchPendingRequestsByBand(loadedBands);
@@ -190,6 +197,26 @@ export default function BandsPage() {
       toast.error(getApiErrorMessage(error, "Error al crear la banda"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRename = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const name = editName.trim();
+    if (!editingBand?.is_owner || !name || renaming) return;
+    setRenaming(true);
+    setRenameError(null);
+    try {
+      const updated = await bandsService.rename(editingBand.id, name);
+      setBands(previous => previous.map(band => band.id === editingBand.id ? { ...band, name: updated.name } : band));
+      setMembersModal(previous => previous?.band.id === editingBand.id
+        ? { ...previous, band: { ...previous.band, name: updated.name } } : previous);
+      setEditingBand(null);
+      toast.success("Nombre actualizado");
+    } catch (error: unknown) {
+      setRenameError(getApiErrorMessage(error, "No fue posible actualizar el nombre"));
+    } finally {
+      setRenaming(false);
     }
   };
 
@@ -471,6 +498,24 @@ export default function BandsPage() {
           </Button>
         </div>
       </div>
+
+      {editingBand && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <form onSubmit={handleRename} role="dialog" aria-modal="true" aria-labelledby="rename-band-title"
+            className="w-full max-w-md space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+            <h2 id="rename-band-title" className="text-xl font-bold">Editar nombre de la banda</h2>
+            <label htmlFor="band-name" className="block text-sm text-zinc-300">Nombre de la banda</label>
+            <input id="band-name" value={editName} maxLength={255} required disabled={renaming}
+              onChange={event => setEditName(event.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-3 text-white" />
+            {renameError && <p role="alert" className="text-sm text-red-400">{renameError}</p>}
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" disabled={renaming} onClick={() => setEditingBand(null)}>Cancelar</Button>
+              <Button type="submit" disabled={renaming || !editName.trim()}>{renaming ? "Guardando..." : "Guardar nombre"}</Button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Modal crear */}
       {showCreateForm && (
@@ -1214,9 +1259,15 @@ export default function BandsPage() {
                         )}
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-bold uppercase ml-2 shrink-0">
-                        Encargado
+                        {band.archived_at ? "Deshabilitada" : "Encargado"}
                       </span>
                     </div>
+
+                    <button type="button" aria-label={`Editar nombre de ${band.name}`}
+                      onClick={() => { setEditName(band.name); setRenameError(null); setEditingBand(band); }}
+                      className="mb-3 flex min-h-11 items-center gap-2 text-sm text-purple-300 hover:text-white">
+                      <Pencil size={16} /> Editar nombre
+                    </button>
 
                     {/* Código de invitación */}
                     <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg p-3 mb-4">

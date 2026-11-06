@@ -20,6 +20,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { getBillableHours } from "@/features/gigs/utils/gig.utils";
 import { Button } from "@/components/ui/button";
 
 interface Gig {
@@ -30,6 +31,7 @@ interface Gig {
   time: string;
   amount: number | string | null;
   hours: number | string;
+  free_hours?: number | string;
   band_name?: string | null;
   is_owner: boolean;
   my_amount?: number | null;
@@ -271,7 +273,7 @@ export default function FinancesPage() {
   const collectedHours = pastGigs.reduce((acc, g) => acc + Number(g.hours), 0);
   // Excluir tocadas gratis (cobro = 0) de tarifa/hora y promedio
   const paidGigs = pastGigs.filter((g) => (effectiveCollected(g) ?? 0) > 0);
-  const paidHours = paidGigs.reduce((acc, g) => acc + Number(g.hours), 0);
+  const paidHours = paidGigs.reduce((acc, g) => acc + getBillableHours(g), 0);
   const tarifaReal = paidHours > 0 ? totalCollected / paidHours : 0;
 
   const earningsByBand = paidGigs.reduce((acc, gig) => {

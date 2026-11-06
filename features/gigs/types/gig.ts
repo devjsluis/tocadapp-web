@@ -10,6 +10,7 @@ export interface Gig {
   time: string;
   amount: number | string;
   hours: number | string;
+  free_hours?: number | string;
   notes?: string;
   band_id?: string | null;
   band_name?: string | null;
@@ -30,6 +31,7 @@ export interface GigFormData {
   date: string;
   time: string;
   hours: string;
+  free_hours: string;
   notes: string;
   band_id: string;
 }
@@ -44,6 +46,7 @@ export interface SaveGigPayload {
   date: string;
   time: string;
   hours: string;
+  free_hours: string;
   notes: string;
   amount: number | null;
   band_id: string | null;

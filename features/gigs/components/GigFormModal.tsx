@@ -373,6 +373,14 @@ export function GigFormModal({
 
           <div className="h-px bg-zinc-800" />
 
+          <FormField id="gig-free-hours" label="Horas gratis" icon={<Timer size={16} />}
+            hint="Horas incluidas en la duración total que no se cobran. Usa 0 si no hay horas gratis.">
+            <input id="gig-free-hours" type="number" inputMode="decimal" min="0"
+              max={Number(formData.hours) || 0} step="any" value={formData.free_hours}
+              onChange={event => onFieldChange("free_hours", event.target.value)}
+              className={fieldClassName} required />
+          </FormField>
+
           {/* Notas */}
           <fieldset>
             <legend className="mb-3 text-xs font-bold tracking-wider text-zinc-500 uppercase">

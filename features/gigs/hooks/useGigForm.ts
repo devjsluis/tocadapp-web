@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
 
 import type {
   Gig,
@@ -19,6 +20,7 @@ const emptyForm: GigFormData = {
   date: "",
   time: "",
   hours: "",
+  free_hours: "0",
   notes: "",
   band_id: "",
 };
@@ -57,6 +59,7 @@ export function useGigForm({ onSave }: UseGigFormParams) {
       date: toDateInput(gig.date),
       time: toTimeInput(String(gig.time)),
       hours: String(gig.hours),
+      free_hours: String(Number(gig.free_hours ?? 0)),
       notes: gig.notes ?? "",
       band_id: gig.band_id ?? "",
     });
@@ -84,6 +87,13 @@ export function useGigForm({ onSave }: UseGigFormParams) {
 
     if (saving) return;
 
+    const totalHours = Number(formData.hours);
+    const freeHours = Number(formData.free_hours.trim() || "0");
+    if (!Number.isFinite(freeHours) || freeHours < 0 || !Number.isFinite(totalHours) || freeHours > totalHours) {
+      toast.error("Las horas gratis deben estar entre 0 y la duración total");
+      return;
+    }
+
     const hasCoordinates =
       formData.latitude.trim() !== "" && formData.longitude.trim() !== "";
 
@@ -97,6 +107,7 @@ export function useGigForm({ onSave }: UseGigFormParams) {
       date: formData.date,
       time: formData.time,
       hours: formData.hours,
+      free_hours: formData.free_hours.trim() || "0",
       notes: formData.notes,
       amount: null,
       band_id: formData.band_id || null,
