@@ -28,7 +28,7 @@ function setup(options = {}) {
       module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true,
     }, fileName: file }).outputText;
     vm.runInNewContext('(function(require,module,exports){' + code + '\n})', {
-      process: { env: {} }, console, Date, Intl, AbortController, setTimeout, URL,
+      process: { env: {} }, console, Date, Intl, AbortController, setTimeout, URL, URLSearchParams,
       window: { location: { origin: 'https://tocadapp.com' }, print: () => calls.push(['print']) },
     })(name => {
       if (name === 'react') return { ...require('react'), useState: initial => {
@@ -120,4 +120,25 @@ test('changing month discards a late response from the previous month', async ()
   tree = h.render(file); await h.flush(); assert.equal(pending.length, 2); assert.equal(pending[0].config.signal.aborted, true);
   pending[1].resolve({ data: report({ month: '2026-10' }) }); await h.flush(); assert.match(text(h.render(file)), /Periodo 2026-10/);
   pending[0].resolve({ data: report({ month: '2026-11' }) }); await h.flush(); assert.match(text(h.render(file)), /Periodo 2026-10/);
+});
+
+
+test('filter query preserves inclusive dates and all selections without mixing month and range', () => {
+  const h=setup();const {accountingFilterQuery}=h.load('features/accounting/accounting.service.ts');
+  const query=new URLSearchParams(accountingFilterQuery({mode:'range',month:'2026-11',from:'2026-10-01',to:'2026-12-31',provider:'STRIPE',currency:'MXN',status:'paid'}));
+  assert.equal(query.has('month'),false);for(const [key,value] of Object.entries({from:'2026-10-01',to:'2026-12-31',provider:'STRIPE',currency:'MXN',status:'paid'}))assert.equal(query.get(key),value);
+  assert.throws(()=>accountingFilterQuery({mode:'range',month:'2026-11',from:'2026-11-12',to:'2026-11-11',provider:'ALL',currency:'',status:'all'}));
+});
+test('changing provider, currency, status and date inputs sends the complete filter set', async () => {
+  const h=setup();const file='features/accounting/AccountingReportView.tsx';let tree=h.render(file);await h.flush();
+  function change(label,value){nodes(tree,node=>node.props?.['aria-label']===label)[0].props.onChange({target:{value}});tree=h.render(file);}
+  change('Tipo de periodo','range');change('Desde','2026-10-01');change('Hasta','2026-12-31');change('Proveedor del reporte','STRIPE');change('Moneda del reporte','MXN');change('Estado del reporte','paid');
+  await h.flush();
+  const calls=h.calls.filter(call=>call[0]==='accountant-get');const params=calls.at(-1)[2].params;
+  assert.equal(JSON.stringify(params),JSON.stringify({from:'2026-10-01',to:'2026-12-31',provider:'STRIPE',currency:'MXN',status:'paid'}));
+});
+test('partial-month native report explains missing daily precision and never shows the full monthly amount', async () => {
+  const h=setup({report:report({month:null,periodLabel:'2026-11-10 a 2026-11-20',partialMonths:['2026-11'],pendingProviders:[],settlements:[]})});
+  const file='features/accounting/AccountingReportView.tsx';h.render(file);await h.flush();const html=text(h.render(file));
+  assert.match(html,/Meses parciales/);assert.match(html,/no se incluyen ni se prorratean/);assert.doesNotMatch(html,/\$100\.00/);
 });
