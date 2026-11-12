@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CalendarDays,
   Check,
@@ -10,6 +10,11 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+
+import {
+  checkoutErrorMessage,
+  canStartCheckout,
+} from "@/features/subscriptions/checkout-safety";
 
 import { Button } from "@/components/ui/button";
 import { tokenStorage } from "@/features/auth/storage/token-storage";
@@ -25,6 +30,8 @@ const YEARLY_SAVINGS = MONTHLY_PRICE * 12 - YEARLY_PRICE;
 
 export default function SubscriptionRequiredPage() {
   const router = useRouter();
+  const checkoutInFlight = useRef(false);
+  const [paymentUnconfirmed, setPaymentUnconfirmed] = useState(false);
   const [checkoutStatus, setCheckoutStatus] = useState<
     string | null | undefined
   >(undefined);
@@ -73,6 +80,7 @@ export default function SubscriptionRequiredPage() {
 
     const confirmSubscription = async () => {
       setConfirmingCheckout(true);
+      setPaymentUnconfirmed(true);
 
       for (let attempt = 0; attempt < 5; attempt += 1) {
         const result = await loadSubscription();
@@ -109,7 +117,7 @@ export default function SubscriptionRequiredPage() {
     }
 
     toast.info("Pago cancelado", {
-      description: "No se realizó ningún cargo.",
+      description: "Si ya completaste un pago, comprueba tu suscripción antes de volver a intentarlo.",
     });
 
     router.replace("/subscription-required");
@@ -123,7 +131,14 @@ export default function SubscriptionRequiredPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const handleSubscribe = async () => {
-    if (checkoutLoading) return;
+    if (
+      checkoutInFlight.current ||
+      !canStartCheckout({
+        loading, checkoutLoading, confirmingCheckout,
+        paymentUnconfirmed, subscriptionData,
+      })
+    ) return;
+    checkoutInFlight.current = true;
 
     try {
       setCheckoutLoading(true);
@@ -135,10 +150,15 @@ export default function SubscriptionRequiredPage() {
       console.error("Error creando Checkout:", error);
 
       toast.error("No pudimos iniciar el pago", {
-        description: "Intenta nuevamente en unos momentos.",
+        description: checkoutErrorMessage(error),
       });
 
       setCheckoutLoading(false);
+      checkoutInFlight.current = false;
+      const code = (error as { response?: { data?: { code?: string } } } | null)?.response?.data?.code;
+      if (code === "SUBSCRIPTION_ALREADY_EXISTS" || code === "CHECKOUT_RECONCILIATION_REQUIRED") {
+        setPaymentUnconfirmed(true);
+      }
     }
   };
 
@@ -336,11 +356,21 @@ export default function SubscriptionRequiredPage() {
             </div>
 
             <div className="mx-auto max-w-xl">
+              {paymentUnconfirmed && (
+                <p role="status" className="mb-4 text-sm text-amber-300">
+                  Hay un pago o una suscripción pendiente de comprobar. Usa
+                  «Comprobar suscripción»; si no se confirma, contacta con soporte
+                  antes de pagar de nuevo.
+                </p>
+              )}
               <Button
                 type="button"
                 className="h-12 w-full bg-purple-700 font-semibold text-white hover:bg-purple-600"
                 onClick={() => void handleSubscribe()}
-                disabled={checkoutLoading || confirmingCheckout}
+                disabled={!canStartCheckout({
+                  loading, checkoutLoading, confirmingCheckout,
+                  paymentUnconfirmed, subscriptionData,
+                })}
               >
                 {confirmingCheckout
                   ? "Confirmando tu suscripción..."
