@@ -50,6 +50,12 @@ const subscriptionsAdminItem: MenuItem = {
   href: "/dashboard/admin/subscriptions",
 };
 
+const accountingAdminItem: MenuItem = {
+  name: "Contabilidad",
+  icon: DollarSign,
+  href: "/dashboard/admin/accounting",
+};
+
 const isActiveRoute = (pathname: string | null, href: string) => {
   if (!pathname) return false;
 
@@ -127,7 +133,7 @@ export function Sidebar() {
   const menuItems = [
     ...baseMenuItems,
     ...(isLeader ? [contactosItem] : []),
-    ...(currentUser?.role === "admin" ? [subscriptionsAdminItem] : []),
+    ...(currentUser?.role === "admin" ? [subscriptionsAdminItem, accountingAdminItem] : []),
   ];
 
   const handleLogout = () => {
