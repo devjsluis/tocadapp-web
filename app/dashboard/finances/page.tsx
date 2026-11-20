@@ -20,7 +20,14 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { getBillableHours } from "@/features/gigs/utils/gig.utils";
+import {
+  effectiveCollected,
+  getGigStartTime,
+  getMonthKey,
+  getMonthlyBalances,
+  type BalanceMovement,
+} from "@/features/finances/utils/monthly-balances";
+import { getBillableHours, parseLocalDate } from "@/features/gigs/utils/gig.utils";
 import { Button } from "@/components/ui/button";
 
 interface Gig {
@@ -29,6 +36,7 @@ interface Gig {
   place: string;
   date: string;
   time: string;
+  starts_at?: string | null;
   amount: number | string | null;
   hours: number | string;
   free_hours?: number | string;
@@ -39,7 +47,7 @@ interface Gig {
   collected_amount?: number | null;
 }
 
-type FinancialMovementType = "INCOME" | "EXPENSE";
+type FinancialMovementType = BalanceMovement["type"];
 
 type MovementScope = "GENERAL" | "BAND" | "GIG";
 
@@ -48,16 +56,13 @@ interface Band {
   name: string;
 }
 
-interface FinancialMovement {
+interface FinancialMovement extends BalanceMovement {
   id: string;
   user_id: number;
   gig_id: number | null;
   band_id: number | null;
-  type: FinancialMovementType;
-  amount: number | string;
   category: string;
   description?: string | null;
-  date: string;
 
   gig_title?: string | null;
   gig_date?: string | null;
@@ -90,11 +95,6 @@ const INCOME_CATEGORIES = [
   "Otro",
 ];
 
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
 function fmt(v: number): string {
   return v.toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -110,12 +110,6 @@ function fmtDate(dateStr: string): string {
   });
 }
 
-function effectiveCollected(gig: Gig): number | null {
-  if (gig.is_owner)
-    return gig.collected_amount != null ? Number(gig.collected_amount) : null;
-  return gig.my_collected != null ? Number(gig.my_collected) : null;
-}
-
 function countsInFinances(gig: Gig): boolean {
   return effectiveCollected(gig) !== null;
 }
@@ -126,8 +120,8 @@ const Skeleton = ({ className = "" }: { className?: string }) => (
 
 export default function FinancesPage() {
   const [bands, setBands] = useState<Band[]>([]);
-  const [gigs, setGigs] = useState<Gig[]>([]);
-  const [movements, setMovements] = useState<FinancialMovement[]>([]);
+  const [loadedGigs, setGigs] = useState<Gig[] | null>(null);
+  const [loadedMovements, setMovements] = useState<FinancialMovement[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TableTab>("pasadas");
   const [period, setPeriod] = useState<FinancePeriod>("all");
@@ -161,36 +155,34 @@ export default function FinancesPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get("/gigs"),
-      api.get("/bands"),
-      api.get("/financial-movements").catch(() => ({ data: { data: [] } })),
+      api.get("/gigs").then(({ data }) => setGigs(data.data)).catch(console.error),
+      api.get("/bands").then(({ data }) => setBands(data.data)).catch(console.error),
+      api.get("/financial-movements").then(({ data }) => setMovements(data.data)).catch(console.error),
     ])
-      .then(([gigsRes, bandsRes, movementsRes]) => {
-        setGigs(gigsRes.data.data);
-        setBands(bandsRes.data.data);
-        setMovements(movementsRes.data.data);
-      })
-      .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
   const today = new Date();
+  const now = today.getTime();
   today.setHours(0, 0, 0, 0);
+  const gigs = loadedGigs ?? [];
+  const movements = loadedMovements ?? [];
+  const balancesAvailable = loadedGigs !== null && loadedMovements !== null;
 
   const availableBands = Array.from(
     new Set(
-      gigs
-        .map((gig) => gig.band_name?.trim())
+      [...gigs, ...movements]
+        .map((item) => item.band_name)
         .filter((bandName): bandName is string => Boolean(bandName)),
     ),
   ).sort((a, b) => a.localeCompare(b, "es"));
 
-  const isGigInsideSelectedPeriod = (gig: Gig): boolean => {
+  const isInsideSelectedPeriod = (date: string): boolean => {
     if (period === "all") {
       return true;
     }
 
-    const gigDate = parseLocalDate(gig.date);
+    const gigDate = parseLocalDate(date);
 
     const startOfToday = new Date(today);
     const endOfToday = new Date(today);
@@ -249,19 +241,14 @@ export default function FinancesPage() {
     return gig.band_name === selectedBand;
   };
 
-  const filteredGigs = gigs.filter(
-    (gig) => isGigInsideSelectedPeriod(gig) && isGigInsideSelectedBand(gig),
-  );
+  const gigsForBand = gigs.filter(isGigInsideSelectedBand);
+  const pastGigsForBand = gigsForBand.filter((gig) => getGigStartTime(gig) < now);
+  const filteredGigs = gigsForBand.filter((gig) => isInsideSelectedPeriod(gig.date));
 
-  const allPastGigs = filteredGigs.filter(
-    (gig) => parseLocalDate(gig.date) < today,
-  );
+  const allPastGigs = pastGigsForBand.filter((gig) => isInsideSelectedPeriod(gig.date));
   const allFutureGigs = filteredGigs
-    .filter((g) => parseLocalDate(g.date) >= today)
-    .sort(
-      (a, b) =>
-        parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime(),
-    );
+    .filter((g) => getGigStartTime(g) >= now)
+    .sort((a, b) => getGigStartTime(a) - getGigStartTime(b));
 
   const pastGigs = allPastGigs.filter(countsInFinances);
 
@@ -299,62 +286,20 @@ export default function FinancesPage() {
       (first, second) => second.total - first.total,
     )[0] ?? null;
 
-  const filteredMovements = movements.filter((movement) => {
-    const movementDate = parseLocalDate(movement.date);
-
-    let insidePeriod = true;
-
-    if (period === "today") {
-      const start = new Date(today);
-      const end = new Date(today);
-      end.setHours(23, 59, 59, 999);
-
-      insidePeriod = movementDate >= start && movementDate <= end;
-    }
-
-    if (period === "week") {
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() - today.getDay());
-
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
-
-      insidePeriod = movementDate >= weekStart && movementDate <= weekEnd;
-    }
-
-    if (period === "month") {
-      insidePeriod =
-        movementDate.getMonth() === today.getMonth() &&
-        movementDate.getFullYear() === today.getFullYear();
-    }
-
-    if (period === "year") {
-      insidePeriod = movementDate.getFullYear() === today.getFullYear();
-    }
-
-    if (period === "custom") {
-      if (customStartDate && customEndDate) {
-        const start = parseLocalDate(customStartDate);
-        const end = parseLocalDate(customEndDate);
-        end.setHours(23, 59, 59, 999);
-
-        insidePeriod = movementDate >= start && movementDate <= end;
-      }
-    }
-
-    if (!insidePeriod) return false;
-
+  const movementsForBand = movements.filter((movement) => {
     if (selectedBand === "all") {
       return true;
     }
 
     if (selectedBand === "personal") {
-      return movement.gig_id !== null && movement.band_id === null;
+      return movement.band_id === null && !movement.band_name;
     }
 
     return movement.band_name === selectedBand;
   });
+  const filteredMovements = movementsForBand.filter((movement) =>
+    isInsideSelectedPeriod(movement.date),
+  );
 
   // ── Movimientos financieros ──
   const expenses = filteredMovements.filter(
@@ -411,49 +356,24 @@ export default function FinancesPage() {
     yearTotalGigs > 0 ? (yearPastCount / yearTotalGigs) * 100 : 0;
 
   // ── Comparativa mensual (cobros reales) ──
-  const thisMonth = today.getMonth();
-  const thisYear = today.getFullYear();
-  const prevMonthDate = new Date(thisYear, thisMonth - 1, 1);
+  const monthlyBalances = balancesAvailable
+    ? getMonthlyBalances(pastGigsForBand, movementsForBand)
+    : null;
+  const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const thisMonthBalance = monthlyBalances?.get(getMonthKey(today)) ?? 0;
+  const previousMonthBalance = monthlyBalances?.get(getMonthKey(prevMonthDate));
+  const monthDiff = previousMonthBalance
+    ? ((thisMonthBalance - previousMonthBalance) / Math.abs(previousMonthBalance)) * 100
+    : null;
 
-  const collectedThisMonth = pastGigs
-    .filter((g) => {
-      const d = parseLocalDate(g.date);
-      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
-    })
-    .reduce((acc, g) => acc + (effectiveCollected(g) ?? 0), 0);
-
-  const collectedPrevMonth = pastGigs
-    .filter((g) => {
-      const d = parseLocalDate(g.date);
-      return (
-        d.getMonth() === prevMonthDate.getMonth() &&
-        d.getFullYear() === prevMonthDate.getFullYear()
-      );
-    })
-    .reduce((acc, g) => acc + (effectiveCollected(g) ?? 0), 0);
-
-  const monthDiff =
-    collectedPrevMonth > 0
-      ? ((collectedThisMonth - collectedPrevMonth) / collectedPrevMonth) * 100
-      : null;
-
-  // ── Mejor mes (por cobrado) ──
-  const byMonth = new Map<string, { total: number; label: string }>();
-  pastGigs.forEach((g) => {
-    const d = parseLocalDate(g.date);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const label = d.toLocaleDateString("es-MX", {
-      month: "long",
-      year: "numeric",
-    });
-    const prev = byMonth.get(key);
-    byMonth.set(key, {
-      total: (prev?.total ?? 0) + (effectiveCollected(g) ?? 0),
-      label,
-    });
-  });
   const bestMonth =
-    [...byMonth.values()].sort((a, b) => b.total - a.total)[0] ?? null;
+    Array.from(monthlyBalances ?? [], ([key, total]) => ({
+      total,
+      label: parseLocalDate(`${key}-01`).toLocaleDateString("es-MX", {
+        month: "long",
+        year: "numeric",
+      }),
+    })).sort((a, b) => b.total - a.total)[0] ?? null;
 
   // ── Tabla ──
   const tableGigs =
@@ -465,7 +385,7 @@ export default function FinancesPage() {
 
   const tableHours = tableGigs.reduce((acc, g) => acc + Number(g.hours), 0);
 
-  const isEmpty = !loading && gigs.length === 0 && movements.length === 0;
+  const isEmpty = balancesAvailable && gigs.length === 0 && movements.length === 0;
 
   const handleSaveMovement = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -559,7 +479,7 @@ export default function FinancesPage() {
       await api.delete(`/financial-movements/${movementToDelete.id}`);
 
       setMovements((prev) =>
-        prev.filter((movement) => movement.id !== movementToDelete.id),
+        prev?.filter((movement) => movement.id !== movementToDelete.id) ?? null,
       );
 
       setMovementToDelete(null);
@@ -780,12 +700,13 @@ export default function FinancesPage() {
                       netIncome >= 0 ? "text-white" : "text-red-400"
                     }`}
                   >
-                    ${fmt(netIncome)}
+                    {balancesAvailable ? `$${fmt(netIncome)}` : "—"}
                   </h3>
                 )}
                 <p className="text-[11px] text-zinc-600 mt-1.5">
-                  ${fmt(totalCollected)} cobrado + ${fmt(totalExtraIncome)}{" "}
-                  extra − ${fmt(totalExpenses)} gastos
+                  {balancesAvailable
+                    ? `$${fmt(totalCollected)} cobrado + $${fmt(totalExtraIncome)} extra − $${fmt(totalExpenses)} gastos`
+                    : !loading && "Saldo no disponible"}
                 </p>
               </div>
 
@@ -903,7 +824,7 @@ export default function FinancesPage() {
             </div>
 
             {/* Este mes vs anterior + Mejor mes */}
-            {!loading && pastGigs.length > 0 && (
+            {!loading && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 flex items-center gap-4">
                   <div
@@ -925,12 +846,10 @@ export default function FinancesPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide mb-0.5">
-                      Cobrado este mes vs anterior
+                      Saldo neto vs. mes anterior
                     </p>
-                    <p className="text-xl font-bold">
-                      {collectedThisMonth > 0
-                        ? `$${fmt(collectedThisMonth)}`
-                        : "$0.00"}
+                    <p className={`text-xl font-bold ${thisMonthBalance < 0 ? "text-red-400" : ""}`}>
+                      {balancesAvailable ? `$${fmt(thisMonthBalance)}` : "—"}
                     </p>
                     <p className="text-xs text-zinc-600 mt-0.5 capitalize">
                       {monthDiff !== null ? (
@@ -948,7 +867,7 @@ export default function FinancesPage() {
                           </span>
                         </span>
                       ) : (
-                        "Sin cobros registrados para comparar"
+                        balancesAvailable ? "Sin datos para comparar" : "Saldo no disponible"
                       )}
                     </p>
                   </div>
@@ -960,13 +879,13 @@ export default function FinancesPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wide mb-0.5">
-                      Mejor mes cobrado
+                      Mejor mes
                     </p>
-                    <p className="text-xl font-bold text-yellow-400">
+                    <p className={`text-xl font-bold ${bestMonth && bestMonth.total < 0 ? "text-red-400" : "text-yellow-400"}`}>
                       {bestMonth ? `$${fmt(bestMonth.total)}` : "—"}
                     </p>
                     <p className="text-xs text-zinc-600 mt-0.5 capitalize">
-                      {bestMonth?.label ?? "Registra cobros para verlo"}
+                      {bestMonth?.label ?? (balancesAvailable ? "Sin historial" : "Saldo no disponible")}
                     </p>
                   </div>
                 </div>
@@ -1608,7 +1527,7 @@ export default function FinancesPage() {
 
                     <tbody>
                       {tableGigs.map((gig) => {
-                        const isPast = parseLocalDate(gig.date) < today;
+                        const isPast = getGigStartTime(gig) < now;
                         const ec = isPast ? effectiveCollected(gig) : null;
 
                         return (
@@ -1707,7 +1626,7 @@ export default function FinancesPage() {
                           $
                           {fmt(
                             tableGigs
-                              .filter((gig) => parseLocalDate(gig.date) < today)
+                              .filter((gig) => getGigStartTime(gig) < now)
                               .reduce(
                                 (total, gig) =>
                                   total + (effectiveCollected(gig) ?? 0),

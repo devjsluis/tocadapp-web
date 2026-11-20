@@ -3,6 +3,14 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/axios";
 import {
+  effectiveCollected,
+  getGigStartTime,
+  getMonthKey,
+  getMonthlyBalances,
+  type BalanceMovement,
+} from "@/features/finances/utils/monthly-balances";
+import { parseLocalDate } from "@/features/gigs/utils/gig.utils";
+import {
   Music,
   DollarSign,
   CalendarCheck,
@@ -23,6 +31,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  Cell,
 } from "recharts";
 
 interface Gig {
@@ -30,24 +39,13 @@ interface Gig {
   title: string;
   date: string;
   time: string;
+  starts_at?: string | null;
   place: string;
   hours: number | string;
   band_name?: string | null;
   is_owner?: boolean;
   collected_amount?: number | string | null;
   my_collected?: number | string | null;
-}
-
-function effectiveCollected(gig: Gig): number | null {
-  if (gig.is_owner === false) {
-    return gig.my_collected != null ? Number(gig.my_collected) : null;
-  }
-  return gig.collected_amount != null ? Number(gig.collected_amount) : null;
-}
-
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("T")[0].split("-").map(Number);
-  return new Date(year, month - 1, day);
 }
 
 function fmtMoney(v: number): string {
@@ -72,17 +70,22 @@ const ChartTooltip = ({
   label?: string;
 }) => {
   if (!active || !payload?.length) return null;
+  const { value } = payload[0];
   return (
     <div className="bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-sm shadow-xl">
       <p className="text-zinc-400 capitalize mb-1">{label}</p>
-      <p className="font-bold text-green-400">${fmtMoney(payload[0].value)}</p>
+      <p className={`font-bold ${value < 0 ? "text-red-400" : "text-purple-400"}`}>
+        ${fmtMoney(value)}
+      </p>
     </div>
   );
 };
 
 export default function DashboardPage() {
-  const [gigs, setGigs] = useState<Gig[]>([]);
+  const [loadedGigs, setGigs] = useState<Gig[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [movements, setMovements] = useState<BalanceMovement[] | null>(null);
+  const [movementsLoading, setMovementsLoading] = useState(true);
 
   useEffect(() => {
     api
@@ -90,18 +93,21 @@ export default function DashboardPage() {
       .then(({ data }) => setGigs(data.data))
       .catch(console.error)
       .finally(() => setLoading(false));
+    api
+      .get("/financial-movements")
+      .then(({ data }) => setMovements(data.data))
+      .catch(console.error)
+      .finally(() => setMovementsLoading(false));
   }, []);
 
+  const gigs = loadedGigs ?? [];
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = today.getTime();
 
-  const pastGigs = gigs.filter((g) => parseLocalDate(g.date) < today);
+  const pastGigs = gigs.filter((g) => getGigStartTime(g) < now);
   const futureGigs = gigs
-    .filter((g) => parseLocalDate(g.date) >= today)
-    .sort(
-      (a, b) =>
-        parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime(),
-    );
+    .filter((g) => getGigStartTime(g) >= now)
+    .sort((a, b) => getGigStartTime(a) - getGigStartTime(b));
 
   // Finanzas: solo cobros reales
   const totalCollected = pastGigs.reduce(
@@ -109,15 +115,11 @@ export default function DashboardPage() {
     0,
   );
 
-  const thisMonthCollected = pastGigs
-    .filter((g) => {
-      const d = parseLocalDate(g.date);
-      return (
-        d.getMonth() === today.getMonth() &&
-        d.getFullYear() === today.getFullYear()
-      );
-    })
-    .reduce((acc, g) => acc + (effectiveCollected(g) ?? 0), 0);
+  const balances = loadedGigs && movements
+    ? getMonthlyBalances(pastGigs, movements)
+    : null;
+  const balancesLoading = loading || movementsLoading;
+  const thisMonthBalance = balances?.get(getMonthKey(today)) ?? 0;
 
   const nextGig = futureGigs[0] ?? null;
 
@@ -136,25 +138,19 @@ export default function DashboardPage() {
     .slice(0, 5);
   const maxPlaceCount = topPlaces[0]?.count ?? 1;
 
-  // Gráfica: cobros por mes, últimos 6 meses
   const chartData = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(today.getFullYear(), today.getMonth() - (5 - i), 1);
-    const total = pastGigs
-      .filter((g) => {
-        const gd = parseLocalDate(g.date);
-        return (
-          gd.getMonth() === d.getMonth() && gd.getFullYear() === d.getFullYear()
-        );
-      })
-      .reduce((acc, g) => acc + (effectiveCollected(g) ?? 0), 0);
+    const key = getMonthKey(d);
     return {
+      key,
       mes: d
         .toLocaleDateString("es-MX", { month: "short" })
         .replace(".", "")
         .toUpperCase(),
-      total,
+      total: balances?.get(key) ?? 0,
     };
   });
+  const sixMonthBalance = chartData.reduce((total, month) => total + month.total, 0);
 
   const todayLabel = today.toLocaleDateString("es-MX", {
     weekday: "long",
@@ -202,10 +198,10 @@ export default function DashboardPage() {
           color="green"
         />
         <StatCard
-          loading={loading}
+          loading={balancesLoading}
           icon={<TrendingUp size={18} className="text-blue-400" />}
-          title="Cobrado este mes"
-          value={`$${fmtMoney(thisMonthCollected)}`}
+          title="Saldo neto este mes"
+          value={balances ? `$${fmtMoney(thisMonthBalance)}` : "—"}
           sub={today.toLocaleDateString("es-MX", {
             month: "long",
             year: "numeric",
@@ -235,20 +231,22 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Gráfica de barras */}
         <div className="lg:col-span-2 bg-zinc-900/50 border border-zinc-800 p-6 rounded-2xl">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
             <div>
-              <h3 className="font-bold">Cobros por mes</h3>
+              <h3 className="font-bold">Saldo neto</h3>
               <p className="text-xs text-zinc-600 mt-0.5">Últimos 6 meses</p>
             </div>
-            <span className="text-xs text-zinc-600 bg-zinc-800 px-2.5 py-1 rounded-full">
-              Solo pasadas
-            </span>
+            {balances && (
+              <p className="text-sm text-zinc-400">
+                Saldo acumulado <strong className={sixMonthBalance < 0 ? "text-red-400" : "text-white"}>${fmtMoney(sixMonthBalance)}</strong>
+              </p>
+            )}
           </div>
-          {loading ? (
+          {balancesLoading ? (
             <div className="h-45 bg-zinc-800/50 rounded-xl animate-pulse" />
-          ) : pastGigs.length === 0 ? (
+          ) : !balances ? (
             <div className="h-45 flex items-center justify-center text-zinc-700 text-sm">
-              Sin datos aún
+              Saldo no disponible
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={180}>
@@ -273,15 +271,17 @@ export default function DashboardPage() {
                   axisLine={false}
                   tickLine={false}
                   width={48}
-                  tickFormatter={(v) =>
-                    v === 0 ? "" : `$${(v / 1000).toFixed(0)}k`
-                  }
+                  tickFormatter={(v) => `$${v.toLocaleString("en-US", { notation: "compact" })}`}
                 />
                 <Tooltip
                   content={<ChartTooltip />}
                   cursor={{ fill: "#ffffff06" }}
                 />
-                <Bar dataKey="total" fill="#a855f7" radius={[5, 5, 0, 0]} />
+                <Bar dataKey="total" fill="#a855f7" minPointSize={3}>
+                  {chartData.map((month) => (
+                    <Cell key={month.key} fill={month.total < 0 ? "#f87171" : "#a855f7"} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           )}
